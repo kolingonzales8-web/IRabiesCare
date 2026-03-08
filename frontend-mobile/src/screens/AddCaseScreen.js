@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, ActivityIndicator, Alert,
   KeyboardAvoidingView, Platform, Switch,
-  Modal, FlatList,
+  Modal, FlatList, StatusBar,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, Check, User, AlertTriangle, Cat, Bandage, FileCheck, ChevronDown } from 'lucide-react-native';
 import apiClient from '../api/client';
@@ -22,7 +22,11 @@ const DropdownSelect = ({ label, options, value, onChange }) => (
     <Text style={styles.label}>{label}</Text>
     <View style={styles.optionsRow}>
       {options.map((opt) => (
-        <TouchableOpacity key={opt} style={[styles.optionBtn, value === opt && styles.optionBtnActive]} onPress={() => onChange(opt)}>
+        <TouchableOpacity
+          key={opt}
+          style={[styles.optionBtn, value === opt && styles.optionBtnActive]}
+          onPress={() => onChange(opt)}
+        >
           <Text style={[styles.optionText, value === opt && styles.optionTextActive]}>{opt}</Text>
         </TouchableOpacity>
       ))}
@@ -35,8 +39,13 @@ const Field = ({ label, placeholder, value, onChange, keyboardType = 'default', 
     <Text style={styles.label}>{label}</Text>
     <TextInput
       style={[styles.input, !editable && styles.inputDisabled, multiline && { height: 80, textAlignVertical: 'top' }]}
-      placeholder={placeholder} placeholderTextColor="#475569"
-      value={value} onChangeText={onChange} keyboardType={keyboardType} editable={editable} multiline={multiline}
+      placeholder={placeholder}
+      placeholderTextColor="#94a3b8"
+      value={value}
+      onChangeText={onChange}
+      keyboardType={keyboardType}
+      editable={editable}
+      multiline={multiline}
     />
   </View>
 );
@@ -46,7 +55,11 @@ const YesNo = ({ label, value, onChange }) => (
     <Text style={styles.label}>{label}</Text>
     <View style={styles.optionsRow}>
       {['Yes', 'No', 'Unknown'].map((opt) => (
-        <TouchableOpacity key={opt} style={[styles.optionBtn, value === opt && styles.optionBtnActive]} onPress={() => onChange(opt)}>
+        <TouchableOpacity
+          key={opt}
+          style={[styles.optionBtn, value === opt && styles.optionBtnActive]}
+          onPress={() => onChange(opt)}
+        >
           <Text style={[styles.optionText, value === opt && styles.optionTextActive]}>{opt}</Text>
         </TouchableOpacity>
       ))}
@@ -67,13 +80,23 @@ const PickerModal = ({ visible, title, items, selected, onSelect, onClose }) => 
               <Text style={modal.cancel}>Cancel</Text>
             </TouchableOpacity>
           </View>
-          <TextInput style={modal.search} placeholder={`Search...`} placeholderTextColor="#475569" value={search} onChangeText={setSearch} />
+          <TextInput
+            style={modal.search}
+            placeholder="Search..."
+            placeholderTextColor="#94a3b8"
+            value={search}
+            onChangeText={setSearch}
+          />
           <FlatList
-            data={filtered} keyExtractor={item => item}
+            data={filtered}
+            keyExtractor={item => item}
             renderItem={({ item }) => (
-              <TouchableOpacity style={[modal.item, selected === item && modal.itemActive]} onPress={() => { onSelect(item); onClose(); setSearch(''); }}>
+              <TouchableOpacity
+                style={[modal.item, selected === item && modal.itemActive]}
+                onPress={() => { onSelect(item); onClose(); setSearch(''); }}
+              >
                 <Text style={[modal.itemText, selected === item && modal.itemTextActive]}>{item}</Text>
-                {selected === item && <Check color="#3b82f6" size={16} />}
+                {selected === item && <Check color="#1565C0" size={16} />}
               </TouchableOpacity>
             )}
             ItemSeparatorComponent={() => <View style={modal.separator} />}
@@ -87,9 +110,13 @@ const PickerModal = ({ visible, title, items, selected, onSelect, onClose }) => 
 const PickerButton = ({ label, value, placeholder, onPress, disabled }) => (
   <View style={styles.inputGroup}>
     <Text style={styles.label}>{label}</Text>
-    <TouchableOpacity style={[styles.pickerBtn, disabled && { opacity: 0.4 }]} onPress={onPress} disabled={disabled}>
-      <Text style={[styles.pickerText, !value && { color: '#475569' }]}>{value || placeholder}</Text>
-      <ChevronDown color="#475569" size={16} />
+    <TouchableOpacity
+      style={[styles.pickerBtn, disabled && { opacity: 0.4 }]}
+      onPress={onPress}
+      disabled={disabled}
+    >
+      <Text style={[styles.pickerText, !value && { color: '#94a3b8' }]}>{value || placeholder}</Text>
+      <ChevronDown color="#94a3b8" size={16} />
     </TouchableOpacity>
   </View>
 );
@@ -100,37 +127,32 @@ export default function AddCaseScreen({ navigation }) {
   const [showMunicipalityPicker, setShowMunicipalityPicker] = useState(false);
   const [showBarangayPicker, setShowBarangayPicker] = useState(false);
 
-  // Personal
-  const [firstName, setFirstName]   = useState('');
-  const [middleName, setMiddleName] = useState('');
-  const [lastName, setLastName]     = useState('');
-  const [dob, setDob]               = useState('');
-  const [age, setAge]               = useState('');
-  const [sex, setSex]               = useState('');
+  const [firstName, setFirstName]     = useState('');
+  const [middleName, setMiddleName]   = useState('');
+  const [lastName, setLastName]       = useState('');
+  const [dob, setDob]                 = useState('');
+  const [age, setAge]                 = useState('');
+  const [sex, setSex]                 = useState('');
   const [municipality, setMunicipality] = useState('');
   const [barangay, setBarangay]         = useState('');
   const [customAddress, setCustomAddress] = useState('');
-  const [contact, setContact]       = useState('');
-  const [email, setEmail]           = useState('');
+  const [contact, setContact]         = useState('');
+  const [email, setEmail]             = useState('');
 
-  // Exposure
   const [exposureDate, setExposureDate]       = useState('');
   const [exposureTime, setExposureTime]       = useState('');
   const [placeOfIncident, setPlaceOfIncident] = useState('');
   const [exposureType, setExposureType]       = useState('');
   const [bodyPart, setBodyPart]               = useState('');
 
-  // Animal
   const [animalSpecies, setAnimalSpecies]       = useState('');
   const [animalOwnership, setAnimalOwnership]   = useState('');
   const [animalVaccinated, setAnimalVaccinated] = useState('');
 
-  // Wound
   const [isBleeding, setIsBleeding]   = useState('');
   const [washedWound, setWashedWound] = useState('');
   const [numWounds, setNumWounds]     = useState('');
 
-  // Consent
   const [consentTreatment, setConsentTreatment] = useState(false);
   const [consentPrivacy, setConsentPrivacy]     = useState(false);
 
@@ -148,15 +170,12 @@ export default function AddCaseScreen({ navigation }) {
   };
 
   const handleDobChange = (val) => { setDob(val); setAge(computeAge(val)); };
-
   const handleMunicipalitySelect = (muni) => { setMunicipality(muni); setBarangay(''); };
-
   const getFullName = () => [firstName, middleName, lastName].filter(Boolean).join(' ');
   const getFinalAddress = () => {
     const base = municipality === 'Others (Outside Bohol)' ? customAddress : municipality;
     return barangay ? `${barangay}, ${base}` : base;
   };
-
   const barangayList = municipality && BOHOL_DATA[municipality] ? BOHOL_DATA[municipality] : [];
 
   const validateStep = () => {
@@ -275,7 +294,12 @@ export default function AddCaseScreen({ navigation }) {
                 <Text style={styles.consentTitle}>Consent to Treatment</Text>
                 <Text style={styles.consentDesc}>I consent to receive rabies post-exposure prophylaxis and related medical treatment as deemed necessary by the health professional.</Text>
               </View>
-              <Switch value={consentTreatment} onValueChange={setConsentTreatment} trackColor={{ false: '#334155', true: '#3b82f6' }} thumbColor={consentTreatment ? '#fff' : '#94a3b8'} />
+              <Switch
+                value={consentTreatment}
+                onValueChange={setConsentTreatment}
+                trackColor={{ false: '#e2e8f0', true: '#1565C0' }}
+                thumbColor={consentTreatment ? '#fff' : '#94a3b8'}
+              />
             </View>
           </View>
           <View style={styles.consentCard}>
@@ -284,7 +308,12 @@ export default function AddCaseScreen({ navigation }) {
                 <Text style={styles.consentTitle}>Data Privacy Consent</Text>
                 <Text style={styles.consentDesc}>I agree that my personal information may be collected, stored, and processed in accordance with the Data Privacy Act of 2012 for health monitoring purposes.</Text>
               </View>
-              <Switch value={consentPrivacy} onValueChange={setConsentPrivacy} trackColor={{ false: '#334155', true: '#3b82f6' }} thumbColor={consentPrivacy ? '#fff' : '#94a3b8'} />
+              <Switch
+                value={consentPrivacy}
+                onValueChange={setConsentPrivacy}
+                trackColor={{ false: '#e2e8f0', true: '#1565C0' }}
+                thumbColor={consentPrivacy ? '#fff' : '#94a3b8'}
+              />
             </View>
           </View>
         </>
@@ -295,6 +324,9 @@ export default function AddCaseScreen({ navigation }) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <StatusBar barStyle="light-content" backgroundColor="#1565C0" />
+
+      {/* Header — matches Dashboard blue header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => step === 0 ? navigation.goBack() : setStep(step - 1)}>
           <ChevronLeft color="#fff" size={22} />
@@ -302,25 +334,42 @@ export default function AddCaseScreen({ navigation }) {
         <Text style={styles.headerTitle}>Register New Case</Text>
         <View style={{ width: 40 }} />
       </View>
-      <View style={styles.stepBar}>
-        {STEPS.map((s, i) => (
-          <View key={i} style={styles.stepItem}>
-            <View style={[styles.stepCircle, i < step && styles.stepDone, i === step && styles.stepActive]}>
-              {i < step ? <Check color="#fff" size={12} /> : <s.icon color={i === step ? '#fff' : '#475569'} size={13} />}
+
+      {/* Step bar — inside blue header zone */}
+      <View style={styles.stepBarWrap}>
+        <View style={styles.stepBar}>
+          {STEPS.map((s, i) => (
+            <View key={i} style={styles.stepItem}>
+              <View style={[styles.stepCircle, i < step && styles.stepDone, i === step && styles.stepActive]}>
+                {i < step
+                  ? <Check color="#fff" size={12} />
+                  : <s.icon color={i === step ? '#1565C0' : 'rgba(255,255,255,0.5)'} size={13} />}
+              </View>
+              {i < STEPS.length - 1 && <View style={[styles.stepLine, i < step && styles.stepLineDone]} />}
             </View>
-            {i < STEPS.length - 1 && <View style={[styles.stepLine, i < step && styles.stepLineDone]} />}
-          </View>
-        ))}
+          ))}
+        </View>
+        <Text style={styles.stepLabel}>{`Step ${step + 1} of ${STEPS.length} — ${STEPS[step].label}`}</Text>
       </View>
-      <Text style={styles.stepLabel}>{`Step ${step + 1} of ${STEPS.length} — ${STEPS[step].label}`}</Text>
-      <ScrollView contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled">
-        {renderStep()}
+
+      {/* Light body — matches Dashboard #f1f5f9 */}
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={styles.formContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.formCard}>
+          {renderStep()}
+        </View>
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* Footer */}
       <View style={styles.footer}>
         {step > 0 && (
           <TouchableOpacity style={styles.prevBtn} onPress={() => setStep(step - 1)}>
-            <ChevronLeft color="#94a3b8" size={18} />
+            <ChevronLeft color="#1565C0" size={18} />
             <Text style={styles.prevText}>Back</Text>
           </TouchableOpacity>
         )}
@@ -330,69 +379,202 @@ export default function AddCaseScreen({ navigation }) {
             <ChevronRight color="#fff" size={18} />
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={[styles.nextBtn, styles.submitBtn, loading && { opacity: 0.6 }]} onPress={handleSubmit} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <><Check color="#fff" size={18} /><Text style={styles.nextText}>Submit Case</Text></>}
+          <TouchableOpacity
+            style={[styles.nextBtn, styles.submitBtn, loading && { opacity: 0.6 }]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <><Check color="#fff" size={18} /><Text style={styles.nextText}>Submit Case</Text></>}
           </TouchableOpacity>
         )}
       </View>
-      <PickerModal visible={showMunicipalityPicker} title="Select Municipality" items={[...MUNICIPALITIES, 'Others (Outside Bohol)']} selected={municipality} onSelect={handleMunicipalitySelect} onClose={() => setShowMunicipalityPicker(false)} />
-      <PickerModal visible={showBarangayPicker} title="Select Barangay" items={barangayList} selected={barangay} onSelect={setBarangay} onClose={() => setShowBarangayPicker(false)} />
+
+      <PickerModal
+        visible={showMunicipalityPicker}
+        title="Select Municipality"
+        items={[...MUNICIPALITIES, 'Others (Outside Bohol)']}
+        selected={municipality}
+        onSelect={handleMunicipalitySelect}
+        onClose={() => setShowMunicipalityPicker(false)}
+      />
+      <PickerModal
+        visible={showBarangayPicker}
+        title="Select Barangay"
+        items={barangayList}
+        selected={barangay}
+        onSelect={setBarangay}
+        onClose={() => setShowBarangayPicker(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 16 },
-  backBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  stepBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginTop: 8 },
+  container: { flex: 1, backgroundColor: '#f1f5f9' },
+
+  // Header — same blue as Dashboard
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 52,
+    paddingBottom: 16,
+    backgroundColor: '#1565C0',
+  },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', flex: 1, marginLeft: 16 },
+
+  // Step bar — sits in blue header zone
+  stepBarWrap: {
+    backgroundColor: '#1565C0',
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
+  stepBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   stepItem: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  stepCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#1e293b', borderWidth: 1.5, borderColor: '#334155', alignItems: 'center', justifyContent: 'center' },
-  stepActive: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
-  stepDone: { backgroundColor: '#10b981', borderColor: '#10b981' },
-  stepLine: { flex: 1, height: 2, backgroundColor: '#1e293b', marginHorizontal: 2 },
+  stepCircle: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepActive: { backgroundColor: '#fff', borderColor: '#fff' },
+  stepDone:   { backgroundColor: '#10b981', borderColor: '#10b981' },
+  stepLine:     { flex: 1, height: 2, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 4 },
   stepLineDone: { backgroundColor: '#10b981' },
-  stepLabel: { textAlign: 'center', color: '#64748b', fontSize: 12, marginTop: 8, marginBottom: 4 },
-  formContent: { paddingHorizontal: 20, paddingTop: 12 },
-  stepHeading: { fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 20 },
-  inputGroup: { marginBottom: 16 },
-  label: { fontSize: 13, fontWeight: '600', color: '#94a3b8', marginBottom: 8 },
-  input: { backgroundColor: '#1e293b', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, color: '#fff', borderWidth: 1.5, borderColor: '#334155' },
+  stepLabel: { textAlign: 'center', color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '500' },
+
+  // Light body
+  body:        { flex: 1, backgroundColor: '#f1f5f9' },
+  formContent: { paddingHorizontal: 16, paddingTop: 18 },
+
+  // White card wrapping each step's fields — matches Dashboard cards
+  formCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  stepHeading: { fontSize: 16, fontWeight: '700', color: '#1e293b', marginBottom: 20 },
+
+  // Inputs — light style matching Dashboard list cards
+  inputGroup: { marginBottom: 18 },
+  label: { fontSize: 12, fontWeight: '600', color: '#64748b', marginBottom: 8, letterSpacing: 0.3 },
+  input: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 14,
+    color: '#1e293b',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+  },
   inputDisabled: { opacity: 0.5 },
+
+  // Option buttons
   optionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  optionBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: '#334155', backgroundColor: '#1e293b' },
-  optionBtnActive: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
-  optionText: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+  optionBtn: {
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: 10, borderWidth: 1.5,
+    borderColor: '#e2e8f0', backgroundColor: '#f8fafc',
+  },
+  optionBtnActive: { backgroundColor: '#1565C0', borderColor: '#1565C0' },
+  optionText:       { fontSize: 13, color: '#64748b', fontWeight: '500' },
   optionTextActive: { color: '#fff', fontWeight: '700' },
-  pickerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1e293b', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1.5, borderColor: '#334155' },
-  pickerText: { fontSize: 14, color: '#fff', flex: 1 },
-  uploadPlaceholder: { borderWidth: 1.5, borderColor: '#334155', borderStyle: 'dashed', borderRadius: 12, padding: 24, alignItems: 'center', backgroundColor: '#1e293b', marginTop: 4 },
-  uploadText: { fontSize: 14, color: '#64748b', marginBottom: 4 },
-  uploadSub: { fontSize: 12, color: '#475569' },
-  consentNote: { fontSize: 13, color: '#64748b', marginBottom: 16, lineHeight: 18 },
-  consentCard: { backgroundColor: '#1e293b', borderRadius: 14, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#334155' },
-  consentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  consentTitle: { fontSize: 14, fontWeight: '700', color: '#fff', marginBottom: 6 },
-  consentDesc: { fontSize: 12, color: '#64748b', lineHeight: 18, paddingRight: 8 },
-  footer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, gap: 10, borderTopWidth: 1, borderTopColor: '#1e293b', backgroundColor: '#0f172a' },
-  prevBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: '#334155' },
-  prevText: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
-  nextBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#3b82f6', paddingVertical: 14, borderRadius: 12 },
+
+  // Picker button
+  pickerBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#f8fafc', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 13,
+    borderWidth: 1.5, borderColor: '#e2e8f0',
+  },
+  pickerText: { fontSize: 14, color: '#1e293b', flex: 1 },
+
+  // Upload placeholder
+  uploadPlaceholder: {
+    borderWidth: 2, borderColor: '#e2e8f0', borderStyle: 'dashed',
+    borderRadius: 12, padding: 24, alignItems: 'center',
+    backgroundColor: '#f8fafc', marginTop: 4,
+  },
+  uploadText: { fontSize: 14, color: '#64748b', marginBottom: 4, fontWeight: '600' },
+  uploadSub:  { fontSize: 12, color: '#94a3b8' },
+
+  // Consent cards
+  consentNote: { fontSize: 13, color: '#64748b', marginBottom: 16, lineHeight: 20 },
+  consentCard: {
+    backgroundColor: '#f8fafc', borderRadius: 14,
+    padding: 16, marginBottom: 14,
+    borderWidth: 1.5, borderColor: '#e2e8f0',
+  },
+  consentRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  consentTitle: { fontSize: 14, fontWeight: '700', color: '#1e293b', marginBottom: 6 },
+  consentDesc:  { fontSize: 12, color: '#64748b', lineHeight: 19, paddingRight: 8 },
+
+  // Footer — white bar matching Dashboard feel
+  footer: {
+    flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 16, gap: 10,
+    borderTopWidth: 1, borderTopColor: '#e2e8f0',
+    backgroundColor: '#fff',
+  },
+  prevBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderRadius: 12, borderWidth: 1.5, borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+  },
+  prevText: { color: '#1565C0', fontSize: 14, fontWeight: '600' },
+  nextBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#1565C0', paddingVertical: 14, borderRadius: 12,
+    shadowColor: '#1565C0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+  },
   submitBtn: { backgroundColor: '#10b981' },
-  nextText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  nextText:  { color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
 });
 
 const modal = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#0f172a', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderColor: '#1e293b', maxHeight: '80%' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1e293b' },
-  title: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  cancel: { fontSize: 14, color: '#3b82f6', fontWeight: '600' },
-  search: { marginHorizontal: 16, marginVertical: 12, backgroundColor: '#1e293b', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 13, color: '#fff', borderWidth: 1.5, borderColor: '#334155' },
-  item: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14 },
-  itemActive: { backgroundColor: '#1e293b' },
-  itemText: { fontSize: 13, color: '#94a3b8' },
-  itemTextActive: { fontWeight: '700', color: '#3b82f6' },
-  separator: { height: 1, backgroundColor: '#1e293b', marginHorizontal: 16 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderTopWidth: 1, borderColor: '#e2e8f0',
+    maxHeight: '80%',
+  },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 22, paddingVertical: 16,
+    borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
+  },
+  title:  { fontSize: 16, fontWeight: '700', color: '#1e293b' },
+  cancel: { fontSize: 14, color: '#1565C0', fontWeight: '600' },
+  search: {
+    marginHorizontal: 16, marginVertical: 12,
+    backgroundColor: '#f8fafc', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 11,
+    fontSize: 13, color: '#1e293b',
+    borderWidth: 1.5, borderColor: '#e2e8f0',
+  },
+  item: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 22, paddingVertical: 14,
+  },
+  itemActive:     { backgroundColor: '#f0f4ff' },
+  itemText:       { fontSize: 14, color: '#475569' },
+  itemTextActive: { fontWeight: '700', color: '#1565C0' },
+  separator:      { height: 1, backgroundColor: '#f1f5f9', marginHorizontal: 16 },
 });

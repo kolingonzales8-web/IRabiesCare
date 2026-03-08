@@ -19,7 +19,8 @@ import Animal    from './pages/Animal';
 import AddAnimal from './pages/AddAnimal';
 import VaccinationCoverage from './pages/VaccinationCoverage';
 import Schedule from './pages/Schedule';
-
+import ReportAndAnalytics from './pages/ReportAndAnalytics';  
+import UserManagement from './pages/UserManagement';
 import useAuthStore from './store/authStore';
 
 function PrivateRoute({ children }) {
@@ -35,9 +36,11 @@ export default function App() {
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
+      <PrivateRoute>
+          <MainLayout>
+              <Dashboard />
+          </MainLayout>
+       </PrivateRoute>
         } />
 
         {/* Cases */}
@@ -100,6 +103,15 @@ export default function App() {
           <PrivateRoute><MainLayout><VaccinationCoverage /></MainLayout></PrivateRoute>
         } />
 
+        {/* Reports & Analytics */}
+        <Route path="/reports" element={
+          <PrivateRoute><MainLayout><ReportAndAnalytics /></MainLayout></PrivateRoute>
+        } />
+
+        {/* User Management */}
+        <Route path="/users" element={
+          <PrivateRoute><MainLayout><UserManagement /></MainLayout></PrivateRoute>
+        } />
       </Routes>
     </BrowserRouter>
   );

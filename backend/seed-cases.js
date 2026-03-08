@@ -18,7 +18,7 @@ const seedCases = async () => {
     }
 
     // Delete existing cases
-    await Case.deleteMany({ createdBy: admin._id });
+    await Case.deleteMany({ createdBy: admin.id });
     console.log('Cleared existing cases');
 
     // Create test cases
@@ -43,7 +43,7 @@ const seedCases = async () => {
         woundWashed: 'Yes',
         numberOfWounds: 2,
         status: 'Ongoing',
-        createdBy: admin._id,
+        createdBy: admin.id ,
       },
       {
         caseId: 'CASE002',
@@ -65,7 +65,7 @@ const seedCases = async () => {
         woundWashed: 'Yes',
         numberOfWounds: 3,
         status: 'Completed',
-        createdBy: admin._id,
+        createdBy: admin.id ,
       },
       {
         caseId: 'CASE003',
@@ -87,7 +87,7 @@ const seedCases = async () => {
         woundWashed: 'No',
         numberOfWounds: 1,
         status: 'Pending',
-        createdBy: admin._id,
+        createdBy: admin.id ,
       },
       {
         caseId: 'CASE004',
@@ -109,7 +109,7 @@ const seedCases = async () => {
         woundWashed: 'Yes',
         numberOfWounds: 1,
         status: 'Urgent',
-        createdBy: admin._id,
+        createdBy: admin.id ,
       },
       {
         caseId: 'CASE005',
@@ -131,7 +131,7 @@ const seedCases = async () => {
         woundWashed: 'Yes',
         numberOfWounds: 4,
         status: 'Ongoing',
-        createdBy: admin._id,
+        createdBy: admin.id ,
       },
       {
         caseId: 'CASE006',
@@ -153,7 +153,7 @@ const seedCases = async () => {
         woundWashed: 'Yes',
         numberOfWounds: 2,
         status: 'Completed',
-        createdBy: admin._id,
+        createdBy: admin.id ,
       },
     ];
 

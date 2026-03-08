@@ -33,16 +33,16 @@ const TAB_CONFIG = [
 ];
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
-const StatCard = ({ label, value, sub, bg, text, icon: Icon }) => (
-  <div className={`${bg} rounded-xl p-5 border border-white`}>
+const StatCard = ({ label, value, sub, gradient, iconBg, icon: Icon }) => (
+  <div className={`bg-gradient-to-br ${gradient} rounded-2xl p-5 text-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all`}>
     <div className="flex items-start justify-between">
       <div>
-        <p className="text-xs font-medium text-slate-500 mb-1">{label}</p>
-        <p className={`text-3xl font-bold ${text}`}>{value}</p>
-        {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
+        <p className="text-xs font-medium text-white/80 mb-1">{label}</p>
+        <p className="text-4xl font-bold leading-none">{value}</p>
+        {sub && <p className="text-xs text-white/70 mt-2">{sub}</p>}
       </div>
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bg}`}>
-        <Icon className={`w-5 h-5 ${text}`} />
+      <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center`}>
+        <Icon className="w-5 h-5 text-white" />
       </div>
     </div>
   </div>
@@ -51,14 +51,15 @@ const StatCard = ({ label, value, sub, bg, text, icon: Icon }) => (
 // ── Badge ─────────────────────────────────────────────────────────────────────
 const Badge = ({ label, color }) => {
   const map = {
-    green:  'bg-emerald-50 text-emerald-700 border-emerald-200',
-    yellow: 'bg-amber-50 text-amber-700 border-amber-200',
-    red:    'bg-red-50 text-red-700 border-red-200',
-    slate:  'bg-slate-100 text-slate-600 border-slate-200',
-    blue:   'bg-blue-50 text-blue-700 border-blue-200',
+    green:  'bg-emerald-500 text-white',
+    yellow: 'bg-orange-400 text-white',
+    red:    'bg-red-500 text-white',
+    slate:  'bg-slate-400 text-white',
+    blue:   'bg-blue-500 text-white',
   };
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${map[color] || map.slate}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold shadow-sm whitespace-nowrap ${map[color] || map.slate}`}>
+      <span className="w-1 h-1 rounded-full bg-white/70" />
       {label}
     </span>
   );
@@ -118,8 +119,8 @@ export default function VaccinationCoverage() {
   // Enrich patients with their vaccination record
   const enriched = patients.map(p => ({
     ...p,
-    vaccination: vacByPatient[p._id] || null,
-    compliance: getComplianceStatus(vacByPatient[p._id] || null),
+    vaccination: vacByPatient[p.id ] || null,
+    compliance: getComplianceStatus(vacByPatient[p.id ] || null),
   }));
 
   const completeCount    = enriched.filter(p => p.compliance === 'Complete').length;
@@ -187,13 +188,13 @@ export default function VaccinationCoverage() {
     <div className="min-h-screen bg-slate-50">
 
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-6 h-[70px] flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Vaccination Coverage Monitoring</h1>
-          <p className="text-xs text-slate-400">Compliance reports, incomplete cases, and municipality trends</p>
+          <h1 className="text-lg font-bold text-slate-800">Vaccination Coverage Monitoring</h1>
+          <p className="text-xs text-slate-400 mt-0.5">Compliance reports, incomplete cases, and municipality trends</p>
         </div>
         <button onClick={fetchAll}
-          className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors">
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-xs font-medium transition-colors">
           <RefreshCw className="w-4 h-4" /> Refresh
         </button>
       </header>
@@ -202,10 +203,10 @@ export default function VaccinationCoverage() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <StatCard label="Total Patients"    value={totalPatients}   sub="Registered in system"          bg="bg-blue-50"    text="text-blue-700"    icon={FileText} />
-          <StatCard label="Fully Compliant"   value={completeCount}   sub="All 5 doses completed"          bg="bg-emerald-50" text="text-emerald-700" icon={CheckCircle} />
-          <StatCard label="Incomplete"        value={incompleteCount} sub="Partial doses recorded"         bg="bg-amber-50"   text="text-amber-700"  icon={Clock} />
-          <StatCard label="Compliance Rate"   value={`${complianceRate}%`} sub="Of registered patients"   bg="bg-purple-50"  text="text-purple-700" icon={TrendingUp} />
+          <StatCard label="Total Patients"    value={totalPatients}   sub="Registered in system"          gradient="from-blue-600 to-blue-500"      iconBg="bg-blue-700/40"    icon={FileText} />
+          <StatCard label="Fully Compliant"   value={completeCount}   sub="All 5 doses completed"          gradient="from-emerald-500 to-green-400" iconBg="bg-emerald-700/40" icon={CheckCircle} />
+          <StatCard label="Incomplete"        value={incompleteCount} sub="Partial doses recorded"         gradient="from-amber-500 to-orange-400" iconBg="bg-amber-700/40"   icon={Clock} />
+          <StatCard label="Compliance Rate"   value={`${complianceRate}%`} sub="Of registered patients"   gradient="from-purple-600 to-purple-500" iconBg="bg-purple-700/40"  icon={TrendingUp} />
         </div>
 
         {/* Tabs */}
@@ -294,7 +295,7 @@ export default function VaccinationCoverage() {
                     {enriched.length === 0 ? (
                       <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">No patient records found</td></tr>
                     ) : enriched.map((p, i) => (
-                      <tr key={p._id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'} hover:bg-blue-50/30 transition-colors`}>
+                      <tr key={p.id } className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'} hover:bg-blue-50/30 transition-colors`}>
                         <td className="px-4 py-3.5">
                           <span className="font-bold text-blue-600 text-xs bg-blue-50 px-2 py-1 rounded-lg">#{p.caseId}</span>
                         </td>
@@ -369,7 +370,7 @@ export default function VaccinationCoverage() {
                       const missingLabels = doseLabels.filter((_, i) => !doses[i]).join(', ');
 
                       return (
-                        <tr key={p._id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'} hover:bg-amber-50/30 transition-colors`}>
+                        <tr key={p.id } className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'} hover:bg-amber-50/30 transition-colors`}>
                           <td className="px-4 py-3.5">
                             <span className="font-bold text-blue-600 text-xs bg-blue-50 px-2 py-1 rounded-lg">#{p.caseId}</span>
                           </td>

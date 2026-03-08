@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView,
   ActivityIndicator, Alert, Animated, StatusBar,
 } from 'react-native';
@@ -24,13 +24,11 @@ export default function RegisterScreen({ navigation }) {
 
   const { setAuth } = useAuthStore();
 
-  // Refs — tapping anywhere on a row focuses the input inside it
   const nameRef    = useRef(null);
   const emailRef   = useRef(null);
   const passRef    = useRef(null);
   const confirmRef = useRef(null);
 
-  // ── Animations ─────────────────────────────────────────────────────────────
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const logoScale = useRef(new Animated.Value(0.75)).current;
@@ -51,7 +49,6 @@ export default function RegisterScreen({ navigation }) {
     ).start();
   }, []);
 
-  // ── Register ────────────────────────────────────────────────────────────────
   const handleRegister = async () => {
     if (!name || !email || !password || !confirmPass) {
       Alert.alert('Missing Fields', 'Please fill in all fields.');
@@ -77,7 +74,6 @@ export default function RegisterScreen({ navigation }) {
     }
   };
 
-  // ── Reusable InputField with ref + TouchableOpacity row ────────────────────
   const InputField = ({
     label, value, onChangeText, placeholder, secureTextEntry,
     keyboardType, autoCapitalize, icon: Icon, focused,
@@ -86,13 +82,11 @@ export default function RegisterScreen({ navigation }) {
   }) => (
     <View style={styles.inputGroup}>
       <Text style={styles.label}>{label}</Text>
-      {/* Wrap the whole row so tapping the icon / padding focuses the TextInput */}
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={() => inputRef?.current?.focus()}
+      <Pressable
         style={[styles.inputRow, focused && styles.inputRowFocused]}
+        onPress={() => inputRef?.current?.focus()}
       >
-        <Icon color={focused ? '#2d4a8a' : '#94a3b8'} size={17} />
+        <Icon color={focused ? '#1565C0' : '#94a3b8'} size={17} />
         <TextInput
           ref={inputRef}
           style={styles.input}
@@ -109,6 +103,7 @@ export default function RegisterScreen({ navigation }) {
           onFocus={onFocus}
           onBlur={onBlur}
           onSubmitEditing={() => nextRef?.current?.focus()}
+          blurOnSubmit={false}
         />
         {showToggle && (
           <TouchableOpacity
@@ -120,7 +115,7 @@ export default function RegisterScreen({ navigation }) {
               : <Eye    color="#94a3b8" size={17} />}
           </TouchableOpacity>
         )}
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 
@@ -130,28 +125,24 @@ export default function RegisterScreen({ navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#1e3a7c" />
+      <StatusBar barStyle="light-content" backgroundColor="#1565C0" />
 
-      {/* Background blobs */}
-      <View style={[styles.blob, styles.blobTL]} />
-      <View style={[styles.blob, styles.blobBR]} />
-      <View style={[styles.blob, styles.blobMid]} />
+      {/* Decorative circles — matching Dashboard header */}
+      <View style={styles.circle1} />
+      <View style={styles.circle2} />
+      <View style={styles.circle3} />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Brand ── */}
-        <Animated.View style={[
-          styles.brandSection,
-          { opacity: fadeAnim, transform: [{ scale: logoScale }] }
-        ]}>
+        {/* Brand */}
+        <Animated.View style={[styles.brandSection, { opacity: fadeAnim, transform: [{ scale: logoScale }] }]}>
           <Animated.View style={[styles.glowRing, { transform: [{ scale: pulseAnim }] }]} />
-
           <View style={styles.logoCircle}>
             <View style={styles.shieldWrap}>
-              <Shield color="#2d4a8a" fill="#2d4a8a" size={50} />
+              <Shield color="#1565C0" fill="#1565C0" size={50} />
               <View style={styles.crossH} />
               <View style={styles.crossV} />
               <View style={styles.redDot}>
@@ -160,104 +151,63 @@ export default function RegisterScreen({ navigation }) {
               </View>
             </View>
           </View>
-
           <Text style={styles.brandName}>iRabiesCare</Text>
           <Text style={styles.brandSub}>CASE MANAGEMENT SYSTEM</Text>
         </Animated.View>
 
-        {/* ── Card ── */}
-        <Animated.View style={[
-          styles.card,
-          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
-        ]}>
+        {/* Card */}
+        <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.cardAccent} />
-
           <View style={styles.cardBody}>
-            <View style={styles.cardTitleRow}>
-              <UserPlus color="#2d4a8a" size={22} />
-              <View>
-                <Text style={styles.cardTitle}>Create Account</Text>
-                <Text style={styles.cardSubtitle}>Register as a patient</Text>
-              </View>
-            </View>
+            <Text style={styles.cardTitle}>Create Account</Text>
+            <Text style={styles.cardSubtitle}>Register as a patient</Text>
 
             <InputField
-              label="Full Name"
-              value={name}
-              onChangeText={setName}
-              placeholder="Juan Dela Cruz"
-              icon={User}
-              inputRef={nameRef}
-              nextRef={emailRef}
+              label="Full Name" value={name} onChangeText={setName}
+              placeholder="Juan Dela Cruz" icon={User}
+              inputRef={nameRef} nextRef={emailRef}
               focused={nameFocused}
-              onFocus={() => setNameFocused(true)}
-              onBlur={() => setNameFocused(false)}
+              onFocus={() => setNameFocused(true)} onBlur={() => setNameFocused(false)}
             />
-
             <InputField
-              label="Email Address"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="your@email.com"
-              icon={Mail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              inputRef={emailRef}
-              nextRef={passRef}
+              label="Email Address" value={email} onChangeText={setEmail}
+              placeholder="your@email.com" icon={Mail}
+              keyboardType="email-address" autoCapitalize="none"
+              inputRef={emailRef} nextRef={passRef}
               focused={emailFocused}
-              onFocus={() => setEmailFocused(true)}
-              onBlur={() => setEmailFocused(false)}
+              onFocus={() => setEmailFocused(true)} onBlur={() => setEmailFocused(false)}
             />
-
             <InputField
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Min. 6 characters"
-              icon={Lock}
-              secureTextEntry
-              showToggle
-              showing={showPassword}
+              label="Password" value={password} onChangeText={setPassword}
+              placeholder="Min. 6 characters" icon={Lock}
+              secureTextEntry showToggle showing={showPassword}
               onToggle={() => setShowPassword(v => !v)}
-              inputRef={passRef}
-              nextRef={confirmRef}
+              inputRef={passRef} nextRef={confirmRef}
               focused={passFocused}
-              onFocus={() => setPassFocused(true)}
-              onBlur={() => setPassFocused(false)}
+              onFocus={() => setPassFocused(true)} onBlur={() => setPassFocused(false)}
             />
-
             <InputField
-              label="Confirm Password"
-              value={confirmPass}
-              onChangeText={setConfirmPass}
-              placeholder="Re-enter your password"
-              icon={Lock}
-              secureTextEntry
-              showToggle
-              showing={showConfirm}
+              label="Confirm Password" value={confirmPass} onChangeText={setConfirmPass}
+              placeholder="Re-enter your password" icon={Lock}
+              secureTextEntry showToggle showing={showConfirm}
               onToggle={() => setShowConfirm(v => !v)}
-              inputRef={confirmRef}
-              returnKeyType="done"
+              inputRef={confirmRef} returnKeyType="done"
               focused={confirmFocused}
-              onFocus={() => setConfirmFocused(true)}
-              onBlur={() => setConfirmFocused(false)}
+              onFocus={() => setConfirmFocused(true)} onBlur={() => setConfirmFocused(false)}
             />
 
             {/* Password strength */}
             {password.length > 0 && (
               <View style={styles.strengthRow}>
                 {[1, 2, 3, 4].map(i => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.strengthBar,
-                      password.length >= i * 3 && (
-                        password.length < 6 ? styles.strengthWeak :
-                        password.length < 9 ? styles.strengthMed :
-                        styles.strengthStrong
-                      ),
-                    ]}
-                  />
+                  <View key={i} style={[
+                    styles.strengthBar,
+                    password.length >= i * 3 && (
+                      password.length < 6  ? styles.strengthWeak :
+                      password.length < 9  ? styles.strengthMed  :
+                      styles.strengthStrong
+                    ),
+                  ]} />
                 ))}
                 <Text style={styles.strengthLabel}>
                   {password.length < 6 ? 'Weak' : password.length < 9 ? 'Good' : 'Strong'}
@@ -265,7 +215,6 @@ export default function RegisterScreen({ navigation }) {
               </View>
             )}
 
-            {/* Register Button */}
             <TouchableOpacity
               style={[styles.signInBtn, loading && styles.signInBtnDisabled]}
               onPress={handleRegister}
@@ -282,14 +231,12 @@ export default function RegisterScreen({ navigation }) {
               )}
             </TouchableOpacity>
 
-            {/* Divider */}
             <View style={styles.divider}>
               <View style={styles.divLine} />
               <Text style={styles.divText}>or</Text>
               <View style={styles.divLine} />
             </View>
 
-            {/* Login link */}
             <View style={styles.loginRow}>
               <Text style={styles.loginTxt}>Already have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')} disabled={loading}>
@@ -299,7 +246,7 @@ export default function RegisterScreen({ navigation }) {
           </View>
         </Animated.View>
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
           <View style={styles.footerRow}>
             <View style={styles.footerDot} />
@@ -307,28 +254,39 @@ export default function RegisterScreen({ navigation }) {
           </View>
           <Text style={styles.footerVersion}>Rabies Prevention Program v1.0</Text>
         </Animated.View>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#2d4a8a' },
+  root: { flex: 1, backgroundColor: '#1565C0' },
 
-  blob:    { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.07)' },
-  blobTL:  { width: 320, height: 320, top: -100, left: -100 },
-  blobBR:  { width: 400, height: 400, bottom: -120, right: -120 },
-  blobMid: { width: 200, height: 200, top: '40%', left: '30%', backgroundColor: 'rgba(255,255,255,0.04)' },
+  /* Decorative circles */
+  circle1: {
+    position: 'absolute', width: 320, height: 320, borderRadius: 160,
+    backgroundColor: 'rgba(0,188,212,0.22)',
+    top: -100, right: -100,
+  },
+  circle2: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(0,188,212,0.15)',
+    top: 60, right: 40,
+  },
+  circle3: {
+    position: 'absolute', width: 180, height: 180, borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    bottom: -40, left: -40,
+  },
 
   scroll: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 24, paddingTop: 56, paddingBottom: 36 },
 
-  // Brand
+  /* Brand */
   brandSection: { alignItems: 'center', marginBottom: 30 },
   glowRing: {
     position: 'absolute', top: -14,
     width: 148, height: 148, borderRadius: 74,
-    backgroundColor: 'rgba(255,255,255,0.13)',
+    backgroundColor: 'rgba(0,188,212,0.2)',
   },
   logoCircle: {
     width: 112, height: 112, borderRadius: 56, backgroundColor: '#fff',
@@ -338,36 +296,35 @@ const styles = StyleSheet.create({
   },
   shieldWrap: { width: 66, height: 66, alignItems: 'center', justifyContent: 'center' },
   crossH: {
-    position: 'absolute', width: 20, height: 4, backgroundColor: '#fff', borderRadius: 2,
-    top: '50%', marginTop: -2,
+    position: 'absolute', width: 20, height: 4, backgroundColor: '#fff',
+    borderRadius: 2, top: '50%', marginTop: -2,
   },
   crossV: {
-    position: 'absolute', width: 4, height: 20, backgroundColor: '#fff', borderRadius: 2,
-    left: '50%', marginLeft: -2, top: '24%',
+    position: 'absolute', width: 4, height: 20, backgroundColor: '#fff',
+    borderRadius: 2, left: '50%', marginLeft: -2, top: '24%',
   },
   redDot: {
-    position: 'absolute', top: 3, right: 3,
-    width: 15, height: 15, borderRadius: 7.5,
-    backgroundColor: '#e74c3c', alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', top: 3, right: 3, width: 15, height: 15,
+    borderRadius: 7.5, backgroundColor: '#e74c3c',
+    alignItems: 'center', justifyContent: 'center',
   },
   dotH: { position: 'absolute', width: 8, height: 2, backgroundColor: '#fff', borderRadius: 1 },
   dotV: { position: 'absolute', width: 2, height: 8, backgroundColor: '#fff', borderRadius: 1 },
   brandName: { fontSize: 36, fontWeight: '700', color: '#fff', letterSpacing: 0.4, marginBottom: 5 },
   brandSub:  { fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: 3.5 },
 
-  // Card
+  /* Card */
   card: {
     width: '100%', borderRadius: 24, overflow: 'hidden', backgroundColor: '#fff',
     shadowColor: '#000', shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.22, shadowRadius: 28, elevation: 14,
   },
-  cardAccent:   { height: 5, backgroundColor: '#2d4a8a' },
+  cardAccent:   { height: 5, backgroundColor: '#1565C0' },
   cardBody:     { padding: 28 },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
   cardTitle:    { fontSize: 22, fontWeight: '700', color: '#1e293b', marginBottom: 2 },
-  cardSubtitle: { fontSize: 13, color: '#64748b' },
+  cardSubtitle: { fontSize: 13, color: '#64748b', marginBottom: 24 },
 
-  // Inputs
+  /* Inputs */
   inputGroup: { marginBottom: 16 },
   label: { fontSize: 12, fontWeight: '700', color: '#475569', marginBottom: 8, letterSpacing: 0.3 },
   inputRow: {
@@ -377,13 +334,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   inputRowFocused: {
-    borderColor: '#2d4a8a', backgroundColor: '#fff',
-    shadowColor: '#2d4a8a', shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.12, shadowRadius: 6, elevation: 2,
+    borderColor: '#1565C0', backgroundColor: '#fff',
+    shadowColor: '#1565C0', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15, shadowRadius: 6, elevation: 2,
   },
   input: { flex: 1, paddingVertical: 14, fontSize: 14, color: '#1e293b' },
 
-  // Password strength
+  /* Strength */
   strengthRow:    { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -8, marginBottom: 14 },
   strengthBar:    { flex: 1, height: 3, borderRadius: 2, backgroundColor: '#e2e8f0' },
   strengthWeak:   { backgroundColor: '#ef4444' },
@@ -391,11 +348,11 @@ const styles = StyleSheet.create({
   strengthStrong: { backgroundColor: '#10b981' },
   strengthLabel:  { fontSize: 10, color: '#94a3b8', marginLeft: 4, fontWeight: '600' },
 
-  // Button
+  /* Button */
   signInBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#2d4a8a', paddingVertical: 16, borderRadius: 14, marginTop: 4,
-    shadowColor: '#2d4a8a', shadowOffset: { width: 0, height: 6 },
+    backgroundColor: '#1565C0', paddingVertical: 16, borderRadius: 14, marginTop: 4,
+    shadowColor: '#1565C0', shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45, shadowRadius: 12, elevation: 8,
   },
   signInBtnDisabled: { opacity: 0.6 },
@@ -407,7 +364,7 @@ const styles = StyleSheet.create({
 
   loginRow: { flexDirection: 'row', justifyContent: 'center' },
   loginTxt:  { fontSize: 13, color: '#64748b' },
-  loginLink: { fontSize: 13, color: '#2d4a8a', fontWeight: '700' },
+  loginLink: { fontSize: 13, color: '#1565C0', fontWeight: '700' },
 
   footer:        { alignItems: 'center', marginTop: 28 },
   footerRow:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },

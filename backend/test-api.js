@@ -38,7 +38,7 @@ async function test() {
       password: 'admin123456'
     });
     token = loginRes.token;
-    userId = loginRes.user._id;
+    userId = loginRes.user.id ;
     console.log(`✅ Login successful!`);
     console.log(`   User ID: ${userId}`);
     console.log(`   User: ${loginRes.user.name}\n`);

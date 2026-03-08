@@ -9,7 +9,7 @@ import {
 } from 'lucide-react-native';
 import useAuthStore from '../store/authStore';
 
-const MenuItem = ({ icon: Icon, label, sub, color = '#3b5998', onPress, danger }) => (
+const MenuItem = ({ icon: Icon, label, sub, color = '#1565C0', onPress, danger }) => (
   <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
     <View style={[styles.menuIcon, { backgroundColor: (danger ? '#fef2f2' : color + '18') }]}>
       <Icon color={danger ? '#ef4444' : color} size={19} />
@@ -39,10 +39,12 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#2d4a8a" />
+      <StatusBar barStyle="light-content" backgroundColor="#1565C0" />
 
       {/* Blue header */}
       <View style={styles.header}>
+        <View style={styles.circle1} />
+        <View style={styles.circle2} />
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initial}</Text>
         </View>
@@ -59,19 +61,18 @@ export default function ProfileScreen({ navigation }) {
         {/* Account info card */}
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
-            <User color="#3b5998" size={16} />
+            <User color="#1565C0" size={16} />
             <Text style={styles.infoLabel}>Full Name</Text>
             <Text style={styles.infoValue}>{user?.name || '—'}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoRow}>
-            <Mail color="#3b5998" size={16} />
+            <Mail color="#1565C0" size={16} />
             <Text style={styles.infoLabel}>Email</Text>
             <Text style={styles.infoValue}>{user?.email || '—'}</Text>
           </View>
         </View>
 
-        {/* Quick links */}
         <Text style={styles.sectionLabel}>QUICK ACCESS</Text>
         <View style={styles.menuCard}>
           <MenuItem
@@ -109,12 +110,10 @@ export default function ProfileScreen({ navigation }) {
           <MenuItem icon={LogOut} label="Log Out" sub="Sign out of your account" danger onPress={handleLogout} />
         </View>
 
-        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>iRabiesCare · Department of Health</Text>
           <Text style={styles.footerVersion}>Rabies Prevention Program v1.0</Text>
         </View>
-
       </ScrollView>
     </View>
   );
@@ -124,9 +123,18 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f1f5f9' },
 
   header: {
-    backgroundColor: '#2d4a8a',
+    backgroundColor: '#1565C0',
     alignItems: 'center',
     paddingTop: 52, paddingBottom: 28, paddingHorizontal: 20,
+    overflow: 'hidden',
+  },
+  circle1: {
+    position: 'absolute', width: 220, height: 220, borderRadius: 110,
+    backgroundColor: 'rgba(0,188,212,0.22)', top: -80, right: -60,
+  },
+  circle2: {
+    position: 'absolute', width: 140, height: 140, borderRadius: 70,
+    backgroundColor: 'rgba(0,188,212,0.15)', top: 10, right: 60,
   },
   avatar: {
     width: 78, height: 78, borderRadius: 39,
@@ -144,7 +152,6 @@ const styles = StyleSheet.create({
   roleText: { fontSize: 11, fontWeight: '700', color: '#fff' },
 
   body: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 },
-
   sectionLabel: { fontSize: 11, fontWeight: '700', color: '#94a3b8', letterSpacing: 1.2, marginBottom: 10, marginTop: 4 },
 
   infoCard: {

@@ -1,38 +1,45 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
+const Case = require('./case.model');
 
-const patientSchema = new mongoose.Schema({
-  case: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Case',
-    required: [true, 'Linked case is required'],
+const Patient = sequelize.define('Patient', {
+  id: { 
+    type: DataTypes.INTEGER, 
+    autoIncrement: true, 
+    primaryKey: true 
   },
-  fullName: {
-    type: String,
-    required: [true, 'Full name is required'],
+  caseId: { 
+    type: DataTypes.INTEGER, 
+    allowNull: false,
+    references: { model: Case, key: 'id' }
   },
-  woundCategory: {
-    type: String,
-    enum: ['Category I', 'Category II', 'Category III'],
-    default: 'Category I',
+  fullName: { 
+    type: DataTypes.STRING, 
+    allowNull: false 
   },
-  patientStatus: {
-    type: String,
-    enum: ['Pending', 'Ongoing', 'Completed'],
-    default: 'Pending',
+  woundCategory: { 
+    type: DataTypes.ENUM('Category I', 'Category II', 'Category III'), 
+    defaultValue: 'Category I' 
   },
-  doses: {
-    type: [Date],
-    default: [],
+  patientStatus: { 
+    type: DataTypes.ENUM('Pending', 'Ongoing', 'Completed'), 
+    defaultValue: 'Pending' 
   },
-  nextSchedule: {
-    type: Date,
-    default: null,
+  // doses array stored as JSON (MySQL supports JSON type)
+  doses: { 
+    type: DataTypes.JSON, 
+    defaultValue: [] 
   },
-  caseOutcome: {
-    type: String,
-    enum: ['Ongoing', 'Recovered', 'Deceased', 'Lost to Follow-up'],
-    default: 'Ongoing',
+  nextSchedule: { 
+    type: DataTypes.DATE, 
+    defaultValue: null 
+  },
+  caseOutcome: { 
+    type: DataTypes.ENUM('Ongoing', 'Recovered', 'Deceased', 'Lost to Follow-up'), 
+    defaultValue: 'Ongoing' 
   },
 }, { timestamps: true });
 
-module.exports = mongoose.model('Patient', patientSchema);
+Patient.belongsTo(Case, { foreignKey: 'caseId', as: 'linkedCase' });
+
+module.exports = Patient;

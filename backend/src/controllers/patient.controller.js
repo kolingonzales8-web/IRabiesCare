@@ -1,37 +1,52 @@
+const { Op } = require('sequelize');
 const Patient = require('../models/patient.model');
-const Case = require('../models/case.model');
+const Case    = require('../models/case.model');
 
-// Get all patients (admin sees all)
+// Get all patients — scoped by role
 exports.getAllPatients = async (req, res) => {
   try {
     const { status, search, page = 1, limit = 10 } = req.query;
 
-    const query = {};
-    if (status && status !== 'All') query.patientStatus = status;
-    if (req.query.caseRef) query.case = req.query.caseRef;
-    if (search) query.$or = [
-      { fullName: { $regex: search, $options: 'i' } },
-    ];
+    const where = {};
+    if (status && status !== 'All') where.patientStatus = status;
+    if (req.query.caseRef) where.caseId = req.query.caseRef;
+    if (search) where.fullName = { [Op.like]: `%${search}%` };
 
-    const total = await Patient.countDocuments(query);
-    const patients = await Patient.find(query)
-      .populate('case', 'caseId fullName')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+    // ✅ Staff only sees patients from cases assigned to them
+    const caseWhere = req.user.role === 'admin'
+      ? {}
+      : { assignedTo: req.user.id };
 
-    // Flatten for frontend convenience
+    const total    = await Patient.count({
+      where,
+      include: [{ model: Case, as: 'linkedCase', where: caseWhere, required: true }],
+    });
+
+    const patients = await Patient.findAll({
+      where,
+      include: [{
+        model: Case,
+        as: 'linkedCase',
+        attributes: ['id', 'caseId', 'fullName', 'contact'],
+        where: caseWhere,
+        required: true,
+      }],
+      order:  [['createdAt', 'DESC']],
+      limit:  Number(limit),
+      offset: (page - 1) * limit,
+    });
+
     const mapped = patients.map(p => ({
-      _id: p._id,
-      caseId: p.case?.caseId,
-      fullName: p.fullName,
-      contact: p.case?.contact,
+      id:            p.id,
+      caseId:        p.linkedCase?.caseId,
+      fullName:      p.fullName,
+      contact:       p.linkedCase?.contact,
       woundCategory: p.woundCategory,
       patientStatus: p.patientStatus,
-      doses: p.doses,
-      nextSchedule: p.nextSchedule,
-      caseOutcome: p.caseOutcome,
-      createdAt: p.createdAt,
+      doses:         p.doses,
+      nextSchedule:  p.nextSchedule,
+      caseOutcome:   p.caseOutcome,
+      createdAt:     p.createdAt,
     }));
 
     res.status(200).json({
@@ -48,7 +63,9 @@ exports.getAllPatients = async (req, res) => {
 // Get single patient
 exports.getPatientById = async (req, res) => {
   try {
-    const patient = await Patient.findById(req.params.id).populate('case');
+    const patient = await Patient.findByPk(req.params.id, {
+      include: [{ model: Case, as: 'linkedCase' }],
+    });
     if (!patient) return res.status(404).json({ message: 'Patient not found' });
     res.status(200).json(patient);
   } catch (error) {
@@ -56,22 +73,21 @@ exports.getPatientById = async (req, res) => {
   }
 };
 
-// Create patient record linked to a case
+// Create patient
 exports.createPatient = async (req, res) => {
   try {
     const { caseId, woundCategory, patientStatus, doses, nextSchedule, caseOutcome } = req.body;
 
-    // Get fullName from the linked case
-    const linkedCase = await Case.findById(caseId);
+    const linkedCase = await Case.findByPk(caseId);
     if (!linkedCase) return res.status(404).json({ message: 'Linked case not found' });
 
     const patient = await Patient.create({
-      case: caseId,
-      fullName: linkedCase.fullName,
+      caseId,
+      fullName:      linkedCase.fullName,
       woundCategory,
       patientStatus,
-      doses: doses || [],
-      nextSchedule: nextSchedule || null,
+      doses:         doses || [],
+      nextSchedule:  nextSchedule || null,
       caseOutcome,
     });
 
@@ -84,13 +100,11 @@ exports.createPatient = async (req, res) => {
 // Update patient
 exports.updatePatient = async (req, res) => {
   try {
-    const updated = await Patient.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!updated) return res.status(404).json({ message: 'Patient not found' });
-    res.status(200).json({ message: 'Patient updated', patient: updated });
+    const patient = await Patient.findByPk(req.params.id);
+    if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+    await patient.update(req.body);
+    res.status(200).json({ message: 'Patient updated', patient });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -99,21 +113,38 @@ exports.updatePatient = async (req, res) => {
 // Delete patient
 exports.deletePatient = async (req, res) => {
   try {
-    const deleted = await Patient.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: 'Patient not found' });
+    const patient = await Patient.findByPk(req.params.id);
+    if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+    await patient.destroy();
     res.status(200).json({ message: 'Patient deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Stats
+// Stats — scoped by role
 exports.getPatientStats = async (req, res) => {
   try {
-    const total     = await Patient.countDocuments({});
-    const ongoing   = await Patient.countDocuments({ patientStatus: 'Ongoing' });
-    const completed = await Patient.countDocuments({ patientStatus: 'Completed' });
-    const pending   = await Patient.countDocuments({ patientStatus: 'Pending' });
+    // ✅ Staff only sees stats for their assigned cases
+    const caseWhere = req.user.role === 'admin'
+      ? {}
+      : { assignedTo: req.user.id };
+
+    const includeCase = [{
+      model: Case,
+      as: 'linkedCase',
+      where: caseWhere,
+      required: true,
+      attributes: [],
+    }];
+
+    const [total, ongoing, completed, pending] = await Promise.all([
+      Patient.count({ include: includeCase }),
+      Patient.count({ where: { patientStatus: 'Ongoing'   }, include: includeCase }),
+      Patient.count({ where: { patientStatus: 'Completed' }, include: includeCase }),
+      Patient.count({ where: { patientStatus: 'Pending'   }, include: includeCase }),
+    ]);
 
     res.status(200).json({ total, ongoing, completed, pending });
   } catch (error) {
@@ -121,20 +152,24 @@ exports.getPatientStats = async (req, res) => {
   }
 };
 
-// Mobile: Get patient records for the logged-in user's cases
-// Used by ScheduleScreen and DashboardScreen to show the patient
-// their own PEP schedule that the admin has assigned.
+// Mobile: Get patient records for logged-in user's cases
 exports.getMyPatients = async (req, res) => {
   try {
-    // Find all cases submitted by the logged-in patient
-    const userCases = await Case.find({ createdBy: req.user._id }).select('_id');
-    const caseIds = userCases.map(c => c._id);
+    const userCases = await Case.findAll({
+      where:      { patientUserId: req.user.id },
+      attributes: ['id'],
+    });
+    const caseIds = userCases.map(c => c.id);
 
-    // Find patient records the admin created for those cases,
-    // and populate all case fields the mobile screens need
-    const patients = await Patient.find({ case: { $in: caseIds } })
-      .populate('case', 'caseId fullName dateOfExposure exposureType status')
-      .sort({ createdAt: -1 });
+    const patients = await Patient.findAll({
+      where: { caseId: { [Op.in]: caseIds } },
+      include: [{
+        model: Case,
+        as: 'linkedCase',
+        attributes: ['id', 'caseId', 'fullName', 'dateOfExposure', 'exposureType', 'status'],
+      }],
+      order: [['createdAt', 'DESC']],
+    });
 
     res.status(200).json(patients);
   } catch (error) {

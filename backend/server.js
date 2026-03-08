@@ -1,14 +1,15 @@
+require('dotenv').config(); // ✅ moved to very top
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
-const connectDB = require('./src/config/db');
-require('dotenv').config();
+const { connectDB } = require('./src/config/db');
 
 const app = express();
 
-// Connect to MongoDB
+// Connect to MySQL
 connectDB();
 
 // Middlewares
@@ -48,7 +49,6 @@ app.use('/api/cases', require('./src/routes/case.routes'));
 app.use('/api/patients', require('./src/routes/patient.routes'));
 app.use('/api/vaccinations', require('./src/routes/vaccination.routes'));
 app.use('/api/animals', require('./src/routes/animal.routes'));
-
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));

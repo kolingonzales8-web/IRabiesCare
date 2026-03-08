@@ -1,205 +1,866 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-  Plus, Search, Eye, Pencil, Trash2,
+  Plus, Search, Eye, Pencil, Trash2, RefreshCw, Download, Filter,
   ChevronLeft, ChevronRight, Loader2, Syringe,
+  X, Save, CheckCircle2, XCircle, CalendarCheck,
+  Circle, AlertCircle, Clock, User, Activity, Calendar, TrendingUp,
 } from 'lucide-react';
 import apiClient from '../api/client';
 
+/* ─────────────────────────────────────
+   Constants
+───────────────────────────────────── */
+const DOSE_SCHEDULE = [
+  { key: 'day0',  label: 'Day 0',  description: 'Initial dose' },
+  { key: 'day3',  label: 'Day 3',  description: '3 days after initial' },
+  { key: 'day7',  label: 'Day 7',  description: '1 week after initial' },
+  { key: 'day14', label: 'Day 14', description: '2 weeks after initial' },
+  { key: 'day28', label: 'Day 28', description: '4 weeks after initial' },
+];
+const INITIAL_DOSE = { scheduledDate: '', administeredDate: '', status: 'pending' };
+const ITEMS_PER_PAGE = 10;
+
+const SLIDE_IN = `
+  @keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+  }
+`;
+
+/* ─────────────────────────────────────
+   Shared UI atoms
+───────────────────────────────────── */
+const inputCls = "w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-white";
+
 const StatusBadge = ({ status }) => {
   const map = {
-    Ongoing:   'bg-blue-50 text-blue-700 border-blue-200',
-    Completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    Ongoing:   'bg-indigo-500',
+    Completed: 'bg-emerald-500',
   };
-  const dots = { Ongoing: 'bg-blue-500', Completed: 'bg-emerald-500' };
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${map[status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${dots[status] || 'bg-slate-400'}`} />
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold text-white ${map[status] || 'bg-slate-400'} shadow-sm whitespace-nowrap`}>
+      <span className="w-1 h-1 rounded-full bg-white/70" />
       {status}
     </span>
   );
 };
 
 const RIGBadge = ({ given }) => (
-  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${given ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold text-white shadow-sm whitespace-nowrap ${given ? 'bg-purple-500' : 'bg-slate-400'}`}>
+    <span className="w-1 h-1 rounded-full bg-white/70" />
     {given ? 'Yes' : 'No'}
   </span>
 );
 
-// Enhanced DoseCell — shows administered (green), scheduled (blue), missed (red), or dash
 const DoseCell = ({ administered, scheduled, missed }) => {
   const fmt = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
-
-  if (administered) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-        {fmt(administered)}
-      </span>
-    );
-  }
-  if (missed) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-50 text-red-600 text-xs font-semibold border border-red-200">
-        <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
-        Missed
-      </span>
-    );
-  }
-  if (scheduled) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-xs font-medium border border-blue-100">
-        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-        {fmt(scheduled)}
-      </span>
-    );
-  }
+  if (administered) return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold text-white bg-emerald-500 shadow-sm whitespace-nowrap">
+      <span className="w-1 h-1 rounded-full bg-white/70" />{fmt(administered)}
+    </span>
+  );
+  if (missed) return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold text-white bg-red-500 shadow-sm whitespace-nowrap">
+      <span className="w-1 h-1 rounded-full bg-white/70" />Missed
+    </span>
+  );
+  if (scheduled) return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold text-white bg-blue-500 shadow-sm whitespace-nowrap">
+      <span className="w-1 h-1 rounded-full bg-white/70" />{fmt(scheduled)}
+    </span>
+  );
   return <span className="text-slate-300 text-xs">—</span>;
 };
 
-const ITEMS_PER_PAGE = 10;
+/* ─────────────────────────────────────
+   Panel shell
+───────────────────────────────────── */
+const PanelShell = ({ width = 'max-w-2xl', children, onBackdropClick }) => (
+  <>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[1000]" onClick={onBackdropClick} />
+    <div className={`fixed right-0 top-0 h-full w-full ${width} bg-white z-[1001] flex flex-col shadow-2xl overflow-hidden`}
+      style={{ animation: 'slideInRight 0.25s cubic-bezier(.4,0,.2,1)' }}>
+      {children}
+    </div>
+    <style>{SLIDE_IN}</style>
+  </>
+);
 
+/* Shared dose form (used by both Add and Edit) */
+const DoseScheduleForm = ({ doses, updateDose, setDoseStatus }) => {
+  const rowStyle = (status) => {
+    if (status === 'done')   return 'bg-emerald-50/60 border-l-4 border-l-emerald-400';
+    if (status === 'missed') return 'bg-red-50/50 border-l-4 border-l-red-400';
+    return 'bg-white border-l-4 border-l-transparent';
+  };
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
+        <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+          <CalendarCheck size={14} className="text-blue-600" />
+        </div>
+        <div>
+          <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">WHO PEP Dose Schedule</p>
+          <p className="text-[11px] text-slate-400">Set dates · Mark doses as done or missed</p>
+        </div>
+      </div>
+
+      {/* Column headers */}
+      <div className="grid grid-cols-[140px_1fr_1fr_110px] gap-2 px-5 py-2.5 bg-slate-50 border-b border-slate-100">
+        {['Dose', 'Scheduled', 'Administered', 'Action'].map(h => (
+          <span key={h} className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{h}</span>
+        ))}
+      </div>
+
+      <div className="divide-y divide-slate-100">
+        {DOSE_SCHEDULE.map(({ key, label, description }, idx) => {
+          const dose = doses[key];
+          const isDone = dose.status === 'done';
+          const isMissed = dose.status === 'missed';
+          return (
+            <div key={key} className={`grid grid-cols-[140px_1fr_1fr_110px] gap-2 items-center px-5 py-3.5 transition-all ${rowStyle(dose.status)}`}>
+              <div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={`text-sm font-bold ${isDone ? 'text-emerald-700' : isMissed ? 'text-red-600' : 'text-slate-700'}`}>{label}</span>
+                  {idx === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-purple-50 text-purple-600 border border-purple-100">Initial</span>}
+                  {isDone   && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">✓</span>}
+                  {isMissed && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-red-100 text-red-600">✗</span>}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">{description}</p>
+              </div>
+              <input type="date" value={dose.scheduledDate} onChange={e => updateDose(key, 'scheduledDate', e.target.value)}
+                className="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" />
+              <input type="date" value={dose.administeredDate} onChange={e => updateDose(key, 'administeredDate', e.target.value)}
+                disabled={!isDone}
+                className={`w-full px-2.5 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 transition-all ${isDone ? 'border-emerald-300 text-emerald-700 bg-white focus:border-emerald-400 focus:ring-emerald-100' : 'border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed'}`} />
+              <div className="flex gap-1">
+                <button type="button" onClick={() => setDoseStatus(key, 'done')}
+                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${isDone ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-400 hover:text-emerald-600'}`}>
+                  <CheckCircle2 size={11} />Done
+                </button>
+                <button type="button" onClick={() => setDoseStatus(key, 'missed')}
+                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${isMissed ? 'bg-red-500 border-red-500 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:border-red-400 hover:text-red-500'}`}>
+                  <XCircle size={11} />Miss
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center gap-4 text-[11px] text-slate-400">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />Done</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />Missed</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-300" />Scheduled</span>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────
+   VIEW PANEL
+───────────────────────────────────── */
+const ViewPanel = ({ vaccinationId, onClose, onEdit }) => {
+  const [record, setRecord] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+
+  useEffect(() => {
+    if (!vaccinationId) return;
+    setLoading(true); setError(null);
+    apiClient.get(`/vaccinations/${vaccinationId}`)
+      .then(res => { 
+        console.log('Vaccination detail JSON:', JSON.stringify(res.data, null, 2)); 
+        setRecord(res.data); 
+      })
+      .catch(err => setError(err.response?.data?.message || 'Failed to load'))
+      .finally(() => setLoading(false));
+  }, [vaccinationId]);
+
+  const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : '—';
+  const fmtShort = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—';
+
+  const doneCount = DOSE_SCHEDULE.filter(({ key }) => record?.[key]).length;
+  const progressPct = record ? (doneCount / 5) * 100 : 0;
+
+  const DoseStatus = ({ dKey }) => {
+    const administered = record?.[dKey];
+    const missed       = record?.[`${dKey}Missed`];
+    const scheduled    = record?.[`${dKey}Scheduled`];
+    if (administered) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />{fmtShort(administered)}</span>;
+    if (missed) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-50 text-red-600 text-xs font-semibold border border-red-200"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />Missed</span>;
+    if (scheduled) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-xs font-medium border border-blue-100"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />{fmtShort(scheduled)}</span>;
+    return <span className="text-slate-300 text-xs">—</span>;
+  };
+
+  return (
+    <PanelShell width="max-w-2xl" onBackdropClick={onClose}>
+      <div className="h-1 w-full bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-600 shrink-0" />
+
+      <div className="shrink-0 bg-white border-b border-slate-100 px-6 h-14 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:border-slate-300 transition-colors">
+            <X size={14} />
+          </button>
+          <div>
+            <p className="text-xs font-bold text-slate-800">{record ? `Vaccination${record.linkedPatient?.caseId ? ` #${record.linkedPatient.caseId}` : ''}` : 'Vaccination Record'}</p>
+            <p className="text-[10px] text-slate-400">PEP schedule and dose details</p>
+          </div>
+        </div>
+        {record && (
+          <div className="flex items-center gap-2">
+            <StatusBadge status={record.status} />
+            <button onClick={() => onEdit(vaccinationId)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-all hover:-translate-y-0.5 shadow-sm">
+              <Pencil size={12} />Edit
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto bg-slate-50/60">
+        {loading && <div className="flex flex-col items-center justify-center h-48"><div className="w-9 h-9 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-3" /><p className="text-slate-400 text-sm">Loading record...</p></div>}
+        {error && <div className="flex items-center justify-center h-48"><p className="text-red-500 text-sm">{error}</p></div>}
+
+        {record && !loading && (
+          <div className="px-6 py-5 space-y-4">
+            {/* Timestamps */}
+            <div className="flex items-center gap-3 text-[11px] text-slate-400">
+              <span className="flex items-center gap-1"><Clock size={11} />Submitted: {fmt(record.createdAt)}</span>
+              <span>·</span>
+              <span>Updated: {fmt(record.updatedAt)}</span>
+            </div>
+
+            {/* Hero */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-purple-500 to-indigo-600" />
+              <div className="p-5 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-200 shrink-0">
+                  <Syringe color="#fff" size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Patient</p>
+                  <h2 className="text-lg font-bold text-slate-800 truncate">
+                    {record.linkedPatient?.fullName || '—'}
+                  </h2>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">#{record.linkedPatient?.caseId || '—'}</span>
+                    <span className="text-[10px] text-slate-400">·</span>
+                    <span className="text-[10px] font-semibold text-slate-600">{record.vaccineBrand}</span>
+                    {record.rigGiven && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-50 text-purple-700 border border-purple-200">RIG Given</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Activity size={14} className="text-blue-600" />
+                  <span className="text-xs font-bold text-slate-700">Dose Progress</span>
+                </div>
+                <span className={`text-xs font-bold px-3 py-1 rounded-full ${doneCount === 5 ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>
+                  {doneCount}/5 doses
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                <div className="h-2.5 rounded-full transition-all duration-700"
+                  style={{ width: `${progressPct}%`, background: doneCount === 5 ? 'linear-gradient(to right, #059669, #10b981)' : 'linear-gradient(to right, #2563eb, #6366f1)' }} />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2">{doneCount === 5 ? '✓ All doses complete' : `${5 - doneCount} dose(s) remaining`}</p>
+            </div>
+
+            {/* Dose table */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-slate-100 bg-blue-50">
+                <CalendarCheck size={14} className="text-blue-600" />
+                <span className="text-xs font-bold text-blue-700 uppercase tracking-wide">Dose Schedule</span>
+              </div>
+              <div className="grid grid-cols-[140px_1fr_1fr] gap-2 px-5 py-2 bg-slate-50 border-b border-slate-100">
+                {['Dose', 'Scheduled', 'Status'].map(h => <span key={h} className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{h}</span>)}
+              </div>
+              <div className="divide-y divide-slate-100">
+                {DOSE_SCHEDULE.map(({ key, label, description }, idx) => (
+                  <div key={key} className="grid grid-cols-[140px_1fr_1fr] gap-2 items-center px-5 py-3.5">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold text-slate-700">{label}</span>
+                        {idx === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-purple-50 text-purple-600 border border-purple-100">Initial</span>}
+                      </div>
+                      <p className="text-[10px] text-slate-400">{description}</p>
+                    </div>
+                    <span className="text-xs text-slate-500">{record?.[`${key}Scheduled`] ? fmtShort(record[`${key}Scheduled`]) : '—'}</span>
+                    <DoseStatus dKey={key} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Vaccine + RIG info */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <Syringe size={13} className="text-purple-600" />
+                  <span className="text-xs font-bold text-slate-700">Vaccine Info</span>
+                </div>
+                {[['Brand', record.vaccineBrand], ['Injection Site', record.injectionSite], ['Status', null]].map(([l, v]) => (
+                  <div key={l} className="flex flex-col gap-0.5">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{l}</p>
+                    {l === 'Status' ? <StatusBadge status={record.status} /> : <p className="text-sm font-semibold text-slate-700">{v || '—'}</p>}
+                  </div>
+                ))}
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <AlertCircle size={13} className="text-purple-600" />
+                  <span className="text-xs font-bold text-slate-700">RIG Administration</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">RIG Given</p>
+                  <RIGBadge given={record.rigGiven} />
+                </div>
+                {record.rigGiven && (
+                  <>
+                    {[['Type', record.rigType], ['Dosage', record.rigDosage ? `${record.rigDosage} IU` : '—'], ['Date', fmtShort(record.rigDateAdministered)]].map(([l, v]) => (
+                      <div key={l} className="flex flex-col gap-0.5">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{l}</p>
+                        <p className="text-sm font-semibold text-slate-700">{v || '—'}</p>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="pb-2" />
+          </div>
+        )}
+      </div>
+    </PanelShell>
+  );
+};
+
+/* ─────────────────────────────────────
+   EDIT PANEL
+───────────────────────────────────── */
+const EditPanel = ({ vaccinationId, onClose, onSaved }) => {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState(null);
+  const [record, setRecord]   = useState(null);
+  const [form, setForm]       = useState({ vaccineBrand: '', injectionSite: 'Left Arm', rigGiven: false, rigType: '', rigDateAdministered: '', rigDosage: '', status: '' });
+  const [doses, setDoses]     = useState({ day0: { ...INITIAL_DOSE }, day3: { ...INITIAL_DOSE }, day7: { ...INITIAL_DOSE }, day14: { ...INITIAL_DOSE }, day28: { ...INITIAL_DOSE } });
+
+  useEffect(() => {
+    if (!vaccinationId) return;
+    setLoading(true); setError(null);
+    apiClient.get(`/vaccinations/${vaccinationId}`)
+      .then(res => {
+        const v = res.data;
+        setRecord(v);
+        setForm({ vaccineBrand: v.vaccineBrand || '', injectionSite: v.injectionSite || 'Left Arm', rigGiven: !!v.rigGiven, rigType: v.rigType || '', rigDateAdministered: v.rigDateAdministered ? new Date(v.rigDateAdministered).toISOString().split('T')[0] : '', rigDosage: v.rigDosage || '', status: v.status || '' });
+        const toStr = (val) => val ? new Date(val).toISOString().split('T')[0] : '';
+        setDoses({
+          day0:  { scheduledDate: toStr(v.day0Scheduled),  administeredDate: toStr(v.day0),  status: v.day0Missed  ? 'missed' : v.day0  ? 'done' : 'pending' },
+          day3:  { scheduledDate: toStr(v.day3Scheduled),  administeredDate: toStr(v.day3),  status: v.day3Missed  ? 'missed' : v.day3  ? 'done' : 'pending' },
+          day7:  { scheduledDate: toStr(v.day7Scheduled),  administeredDate: toStr(v.day7),  status: v.day7Missed  ? 'missed' : v.day7  ? 'done' : 'pending' },
+          day14: { scheduledDate: toStr(v.day14Scheduled), administeredDate: toStr(v.day14), status: v.day14Missed ? 'missed' : v.day14 ? 'done' : 'pending' },
+          day28: { scheduledDate: toStr(v.day28Scheduled), administeredDate: toStr(v.day28), status: v.day28Missed ? 'missed' : v.day28 ? 'done' : 'pending' },
+        });
+      })
+      .catch(err => setError(err.response?.data?.message || 'Failed to load'))
+      .finally(() => setLoading(false));
+  }, [vaccinationId]);
+
+  const set = (f) => (v) => setForm(p => ({ ...p, [f]: v }));
+  const updateDose = (key, field, val) => setDoses(prev => ({ ...prev, [key]: { ...prev[key], [field]: val } }));
+  const setDoseStatus = (key, newStatus) => setDoses(prev => {
+    const cur = prev[key];
+    const resolved = cur.status === newStatus ? 'pending' : newStatus;
+    return { ...prev, [key]: { ...cur, status: resolved, administeredDate: resolved === 'done' && !cur.administeredDate ? new Date().toISOString().split('T')[0] : cur.administeredDate } };
+  });
+
+  const doneCount   = DOSE_SCHEDULE.filter(({ key }) => doses[key].status === 'done').length;
+  const progressPct = (doneCount / 5) * 100;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const sched = {};
+      DOSE_SCHEDULE.forEach(({ key }) => {
+        const d = doses[key];
+        sched[key]               = d.status === 'done' && d.administeredDate ? d.administeredDate : null;
+        sched[`${key}Scheduled`] = d.scheduledDate || null;
+        sched[`${key}Missed`]    = d.status === 'missed';
+      });
+      const autoStatus = doneCount === 5 ? 'Completed' : doneCount > 0 ? 'Ongoing' : form.status;
+      await apiClient.put(`/vaccinations/${vaccinationId}`, { vaccineBrand: form.vaccineBrand, injectionSite: form.injectionSite, rigGiven: form.rigGiven, rigType: form.rigGiven ? form.rigType : null, rigDateAdministered: form.rigGiven ? form.rigDateAdministered : null, rigDosage: form.rigGiven ? form.rigDosage : null, status: autoStatus, schedule: sched });
+      onSaved();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <PanelShell width="max-w-2xl" onBackdropClick={onClose}>
+      <div className="h-1 w-full bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 shrink-0" />
+
+      <div className="shrink-0 border-b border-slate-100 px-6 h-14 flex items-center justify-between bg-white">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:border-slate-300 transition-colors"><X size={14} /></button>
+          <div>
+            <p className="text-xs font-bold text-slate-800">Edit Vaccination</p>
+            <p className="text-[10px] text-slate-400">{record ? `${record.linkedPatient?.fullName || '—'} · #${record.linkedPatient?.caseId || '—'}` : 'Loading...'}</p>
+          </div>
+        </div>
+        {!loading && (
+          <button onClick={handleSave} disabled={saving}
+            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold transition-all">
+            {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto bg-slate-50/60">
+        {loading && <div className="flex flex-col items-center justify-center h-48"><div className="w-9 h-9 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-3" /><p className="text-slate-400 text-sm">Loading...</p></div>}
+        {error && <div className="flex items-center justify-center h-48"><p className="text-red-500 text-sm">{error}</p></div>}
+
+        {!loading && !error && (
+          <div className="px-6 py-5 space-y-4">
+
+            {/* Progress */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2"><Syringe size={14} className="text-blue-600" /><span className="text-xs font-bold text-slate-700">Dose Progress</span></div>
+                <span className={`text-xs font-bold px-3 py-1 rounded-full ${doneCount === 5 ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>{doneCount}/5 done</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                <div className="h-2.5 rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, backgroundColor: doneCount === 5 ? '#059669' : '#2563eb' }} />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2">{doneCount === 5 ? '✓ All doses done — status will be Completed' : `${5 - doneCount} remaining`}</p>
+            </div>
+
+            {/* Dose schedule */}
+            <DoseScheduleForm doses={doses} updateDose={updateDose} setDoseStatus={setDoseStatus} />
+
+            {/* Vaccine info */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <div className="w-7 h-7 rounded-lg bg-purple-50 flex items-center justify-center"><Syringe size={13} className="text-purple-600" /></div>
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Vaccine Information</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3.5">
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vaccine Brand</label>
+                  <input value={form.vaccineBrand} onChange={e => set('vaccineBrand')(e.target.value)} placeholder="e.g. Verorab, Speeda, Rabipur" className={inputCls} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Injection Site</label>
+                  <div className="relative">
+                    <select value={form.injectionSite} onChange={e => set('injectionSite')(e.target.value)} className={`${inputCls} appearance-none`}>
+                      <option>Left Arm</option><option>Right Arm</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Auto Status</label>
+                  <div className="flex items-center gap-2 px-3 py-2.5 border border-slate-100 rounded-xl bg-slate-50">
+                    <span className={`w-2 h-2 rounded-full ${doneCount === 5 ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+                    <span className="text-sm text-slate-600 font-medium">{doneCount === 5 ? 'Completed' : doneCount > 0 ? 'Ongoing' : form.status || '—'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* RIG */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-purple-50 flex items-center justify-center"><AlertCircle size={13} className="text-purple-600" /></div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Rabies Immunoglobulin (RIG)</span>
+                    <p className="text-[10px] text-slate-400">Mark if administered with vaccination</p>
+                  </div>
+                </div>
+                <button onClick={() => set('rigGiven')(!form.rigGiven)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${form.rigGiven ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300'}`}>
+                  {form.rigGiven ? <CheckCircle2 size={13} /> : <Circle size={13} />}
+                  RIG: {form.rigGiven ? 'Yes' : 'No'}
+                </button>
+              </div>
+              {form.rigGiven && (
+                <div className="grid grid-cols-2 gap-3.5">
+                  {[{ f: 'rigType', l: 'RIG Type', ph: 'HRIG / ERIG', t: 'text' }, { f: 'rigDateAdministered', l: 'Date Administered', ph: '', t: 'date' }, { f: 'rigDosage', l: 'Dosage (IU)', ph: 'e.g. 1500', t: 'number' }].map(({ f, l, ph, t }) => (
+                    <div key={f} className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{l}</label>
+                      <input type={t} value={form[f]} onChange={e => set(f)(e.target.value)} placeholder={ph} className={inputCls} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pb-2" />
+          </div>
+        )}
+      </div>
+
+      {!loading && !error && (
+        <div className="shrink-0 flex gap-3 px-6 py-4 border-t border-slate-100 bg-white">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-sm transition-all">
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      )}
+    </PanelShell>
+  );
+};
+
+/* ─────────────────────────────────────
+   ADD PANEL
+───────────────────────────────────── */
+const AddPanel = ({ onClose, onSaved }) => {
+  const [patients, setPatients]         = useState([]);
+  const [loadingPatients, setLoadingPatients] = useState(true);
+  const [submitting, setSubmitting]     = useState(false);
+  const [error, setError]               = useState(null);
+  const [form, setForm] = useState({ patientId: '', vaccineBrand: '', injectionSite: 'Left Arm', manufacturer: '', vaccineStockUsed: '', rigGiven: false, rigType: 'HRIG', rigDateAdministered: '', rigDosage: '', status: 'Ongoing' });
+  const [doses, setDoses] = useState({ day0: { ...INITIAL_DOSE }, day3: { ...INITIAL_DOSE }, day7: { ...INITIAL_DOSE }, day14: { ...INITIAL_DOSE }, day28: { ...INITIAL_DOSE } });
+
+  useEffect(() => {
+    apiClient.get('/patients', { params: { limit: 200 } })
+      .then(res => setPatients(res.data.patients || []))
+      .catch(err => setError(err.response?.data?.message || 'Failed to load patients'))
+      .finally(() => setLoadingPatients(false));
+  }, []);
+
+  const set = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
+  const updateDose = (key, field, val) => setDoses(prev => ({ ...prev, [key]: { ...prev[key], [field]: val } }));
+  const setDoseStatus = (key, newStatus) => setDoses(prev => {
+    const cur = prev[key];
+    const resolved = cur.status === newStatus ? 'pending' : newStatus;
+    return { ...prev, [key]: { ...cur, status: resolved, administeredDate: resolved === 'done' && !cur.administeredDate ? new Date().toISOString().split('T')[0] : cur.administeredDate } };
+  });
+
+  const doneCount   = DOSE_SCHEDULE.filter(({ key }) => doses[key].status === 'done').length;
+  const progressPct = (doneCount / 5) * 100;
+
+  const handleSubmit = async () => {
+    setError(null);
+    if (!form.patientId)    return setError('Please select a patient.');
+    if (!form.vaccineBrand) return setError('Please enter the vaccine brand.');
+    const sched = {};
+    DOSE_SCHEDULE.forEach(({ key }) => {
+      const d = doses[key];
+      sched[key]               = d.status === 'done' && d.administeredDate ? d.administeredDate : null;
+      sched[`${key}Scheduled`] = d.scheduledDate || null;
+      sched[`${key}Missed`]    = d.status === 'missed';
+    });
+    const autoStatus = doneCount === 5 ? 'Completed' : doneCount > 0 ? 'Ongoing' : form.status;
+    setSubmitting(true);
+    try {
+      await apiClient.post('/vaccinations', { patientId: form.patientId, vaccineBrand: form.vaccineBrand, injectionSite: form.injectionSite, manufacturer: form.manufacturer || null, vaccineStockUsed: form.vaccineStockUsed ? Number(form.vaccineStockUsed) : null, schedule: sched, rigGiven: form.rigGiven, rigType: form.rigGiven ? form.rigType : null, rigDateAdministered: form.rigGiven ? form.rigDateAdministered || null : null, rigDosage: form.rigGiven && form.rigDosage ? Number(form.rigDosage) : null, status: autoStatus });
+      onSaved();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save record');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <PanelShell width="max-w-2xl" onBackdropClick={onClose}>
+      <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 shrink-0" />
+
+      <div className="shrink-0 border-b border-slate-100 px-6 h-14 flex items-center justify-between bg-white">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:border-slate-300 transition-colors"><X size={14} /></button>
+          <div>
+            <p className="text-xs font-bold text-slate-800">Add Vaccination Record</p>
+            <p className="text-[10px] text-slate-400">Record WHO PEP schedule and vaccine details</p>
+          </div>
+        </div>
+        <button onClick={handleSubmit} disabled={submitting}
+          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold transition-all hover:-translate-y-0.5 shadow-sm">
+          {submitting ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+          {submitting ? 'Saving...' : 'Save Record'}
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto bg-slate-50/60">
+        <div className="px-6 py-5 space-y-4">
+          {error && <div className="flex items-center gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm"><AlertCircle size={15} />{error}</div>}
+
+          {/* Link patient */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center"><User size={13} className="text-blue-600" /></div>
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Link to Patient</span>
+            </div>
+            {loadingPatients ? (
+              <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 size={14} className="animate-spin" />Loading patients...</div>
+            ) : (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Select Patient <span className="text-red-400">*</span></label>
+                <div className="relative">
+                  <select value={form.patientId} onChange={e => set('patientId')(e.target.value)} className={`${inputCls} appearance-none`}>
+                    <option value="">— Select a patient —</option>
+                    {patients.map(p => <option key={p.id} value={p.id}>#{p.caseId} — {p.fullName}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Vaccine details */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <div className="w-7 h-7 rounded-lg bg-purple-50 flex items-center justify-center"><Syringe size={13} className="text-purple-600" /></div>
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Vaccine Details</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3.5">
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vaccine Brand <span className="text-red-400">*</span></label>
+                <input type="text" value={form.vaccineBrand} onChange={e => set('vaccineBrand')(e.target.value)} placeholder="e.g. Verorab, Speeda, Rabipur" className={inputCls} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Injection Site</label>
+                <div className="relative">
+                  <select value={form.injectionSite} onChange={e => set('injectionSite')(e.target.value)} className={`${inputCls} appearance-none`}>
+                    <option>Left Arm</option><option>Right Arm</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Manufacturer</label>
+                <input type="text" value={form.manufacturer} onChange={e => set('manufacturer')(e.target.value)} placeholder="e.g. Sanofi Pasteur" className={inputCls} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vaccine Stock Used (doses)</label>
+                <input type="number" min="0" value={form.vaccineStockUsed} onChange={e => set('vaccineStockUsed')(e.target.value)} placeholder="e.g. 1" className={inputCls} />
+              </div>
+            </div>
+          </div>
+
+          {/* Progress */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2"><Syringe size={14} className="text-blue-600" /><span className="text-xs font-bold text-slate-700">Dose Progress</span></div>
+              <span className={`text-xs font-bold px-3 py-1 rounded-full ${doneCount === 5 ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>{doneCount}/5 done</span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+              <div className="h-2.5 rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, backgroundColor: doneCount === 5 ? '#059669' : '#2563eb' }} />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-2">{doneCount === 5 ? '✓ All doses done!' : `${5 - doneCount} remaining`}</p>
+          </div>
+
+          {/* Dose schedule */}
+          <DoseScheduleForm doses={doses} updateDose={updateDose} setDoseStatus={setDoseStatus} />
+
+          {/* RIG */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-purple-50 flex items-center justify-center"><AlertCircle size={13} className="text-purple-600" /></div>
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">RIG Administration</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {[true, false].map(val => (
+                  <button key={String(val)} type="button" onClick={() => set('rigGiven')(val)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${form.rigGiven === val ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-slate-200 text-slate-500 hover:border-purple-300'}`}>
+                    {val ? 'Yes' : 'No'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {form.rigGiven && (
+              <div className="grid grid-cols-2 gap-3.5">
+                {[{ f: 'rigType', l: 'RIG Type', ph: 'HRIG / ERIG', t: 'text' }, { f: 'rigDateAdministered', l: 'Date', ph: '', t: 'date' }, { f: 'rigDosage', l: 'Dosage (IU)', ph: 'e.g. 1500', t: 'number' }].map(({ f, l, ph, t }) => (
+                  <div key={f} className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{l}</label>
+                    <input type={t} value={form[f]} onChange={e => set(f)(e.target.value)} placeholder={ph} className={inputCls} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="pb-2" />
+        </div>
+      </div>
+
+      <div className="shrink-0 flex gap-3 px-6 py-4 border-t border-slate-100 bg-white">
+        <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+        <button onClick={handleSubmit} disabled={submitting}
+          className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-sm transition-all hover:-translate-y-0.5">
+          {submitting ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+          {submitting ? 'Saving...' : 'Save Record'}
+        </button>
+      </div>
+    </PanelShell>
+  );
+};
+
+/* ─────────────────────────────────────
+   MAIN Vaccination List
+───────────────────────────────────── */
 export default function Vaccination() {
-  const navigate = useNavigate();
   const [vaccinations, setVaccinations] = useState([]);
-  const [stats, setStats]       = useState({ total: 0, ongoing: 0, completed: 0, rigGiven: 0 });
-  const [search, setSearch]     = useState('');
+  const [stats, setStats]               = useState({ total: 0, ongoing: 0, completed: 0, rigGiven: 0 });
+  const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [page, setPage]         = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal]       = useState(0);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  const [page, setPage]                 = useState(1);
+  const [totalPages, setTotalPages]     = useState(1);
+  const [total, setTotal]               = useState(0);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState(null);
+  const [deleteId, setDeleteId]         = useState(null);
+  const [deleting, setDeleting]         = useState(false);
+
+  const [viewId, setViewId]   = useState(null);
+  const [editId, setEditId]   = useState(null);
+  const [addOpen, setAddOpen] = useState(false);
+
+  const closeAll = () => { setViewId(null); setEditId(null); setAddOpen(false); };
 
   const fetchVaccinations = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
-      const res = await apiClient.get('/vaccinations', {
-        params: {
-          page, limit: ITEMS_PER_PAGE,
-          ...(statusFilter !== 'All' && { status: statusFilter }),
-          ...(search && { search }),
-        },
-      });
+      const res = await apiClient.get('/vaccinations', { params: { page, limit: ITEMS_PER_PAGE, ...(statusFilter !== 'All' && { status: statusFilter }), ...(search && { search }) } });
       setVaccinations(res.data.vaccinations);
       setTotal(res.data.total);
       setTotalPages(res.data.totalPages);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch vaccination records');
+      setError(err.response?.data?.message || 'Failed to fetch records');
     } finally {
       setLoading(false);
     }
   }, [page, statusFilter, search]);
 
   const fetchStats = useCallback(async () => {
-    try {
-      const res = await apiClient.get('/vaccinations/stats');
-      setStats(res.data);
-    } catch (_) {}
+    try { const res = await apiClient.get('/vaccinations/stats'); setStats(res.data); } catch {}
   }, []);
 
   useEffect(() => { fetchVaccinations(); }, [fetchVaccinations]);
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') closeAll(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const refresh = () => { fetchVaccinations(); fetchStats(); };
+
   const handleDelete = async () => {
     setDeleting(true);
-    try {
-      await apiClient.delete(`/vaccinations/${deleteId}`);
-      setDeleteId(null);
-      fetchVaccinations();
-      fetchStats();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete record');
-    } finally {
-      setDeleting(false);
-    }
+    try { await apiClient.delete(`/vaccinations/${deleteId}`); setDeleteId(null); refresh(); }
+    catch (err) { alert(err.response?.data?.message || 'Failed to delete'); }
+    finally { setDeleting(false); }
   };
 
-  const handleSearch = (val) => { setSearch(val); setPage(1); };
+  const handleSearch       = (val) => { setSearch(val); setPage(1); };
   const handleStatusFilter = (val) => { setStatusFilter(val); setPage(1); };
 
-  return (
-    <div className="min-h-screen bg-slate-50">
+  const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—';
+  const fmtLong = d => d ? new Date(d).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '';
 
-      {/* Delete Modal */}
+  const StatCard = ({ label, value, sub, icon: Icon, gradient, iconBg, loading }) => (
+    <div className={`bg-gradient-to-br ${gradient} rounded-2xl p-6 text-white shadow-sm`}>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium text-white/80">{label}</p>
+          {loading ? <div className="h-10 w-12 bg-white/20 rounded-lg animate-pulse mt-2" /> : <p className="text-5xl font-bold mt-2 leading-none">{value ?? 0}</p>}
+          <p className="text-sm text-white/70 mt-3 flex items-center gap-1"><TrendingUp size={12} />{sub}</p>
+        </div>
+        <div className={`w-12 h-12 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}><Icon size={22} className="text-white" /></div>
+      </div>
+    </div>
+  );
+
+  const statCards = [
+    { label: 'Total Records',      value: stats.total,     sub: 'All vaccination records', icon: Syringe,   gradient: 'from-blue-600 to-blue-500',          iconBg: 'bg-blue-700/40' },
+    { label: 'Ongoing',            value: stats.ongoing,   sub: 'Active vaccination',     icon: Activity,  gradient: 'from-indigo-600 to-indigo-500',     iconBg: 'bg-indigo-700/40' },
+    { label: 'Completed',          value: stats.completed, sub: 'All doses given',        icon: CheckCircle2, gradient: 'from-emerald-500 to-green-400',     iconBg: 'bg-emerald-700/40' },
+    { label: 'RIG Given',          value: stats.rigGiven,  sub: 'Immunoglobulin admin',   icon: AlertCircle, gradient: 'from-purple-600 to-purple-500',     iconBg: 'bg-purple-700/40' },
+  ];
+
+  return (
+    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
+
+      {/* ── Panels ── */}
+      {viewId  && !editId && !addOpen && <ViewPanel vaccinationId={viewId} onClose={closeAll} onEdit={(id) => { setViewId(null); setEditId(id); }} />}
+      {editId  && <EditPanel vaccinationId={editId}  onClose={closeAll} onSaved={() => { closeAll(); refresh(); }} />}
+      {addOpen && <AddPanel  onClose={closeAll}  onSaved={() => { closeAll(); refresh(); }} />}
+
+      {/* ── Delete Modal ── */}
       {deleteId && (
         <div className="fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-              <Trash2 className="w-6 h-6 text-red-500" />
-            </div>
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4"><Trash2 className="w-6 h-6 text-red-500" /></div>
             <h3 className="text-base font-bold text-slate-800 text-center mb-2">Delete Record?</h3>
             <p className="text-sm text-slate-500 text-center mb-6">This vaccination record will be permanently removed.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteId(null)} disabled={deleting}
-                className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-                Cancel
-              </button>
-              <button onClick={handleDelete} disabled={deleting}
-                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
-                {deleting && <Loader2 className="w-4 h-4 animate-spin" />} Delete
+              <button onClick={() => setDeleteId(null)} disabled={deleting} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+              <button onClick={handleDelete} disabled={deleting} className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-colors">
+                {deleting && <Loader2 className="w-4 h-4 animate-spin" />}Delete
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-6 h-[70px] flex items-center justify-between">
+      {/* ── Header ── */}
+      <header className="shrink-0 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Vaccination Records</h1>
-          <p className="text-xs text-slate-400">WHO PEP schedule tracking and vaccine administration</p>
+          <h1 className="text-lg font-bold text-slate-800">Vaccination Records</h1>
+          <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5"><Calendar size={11} className="text-slate-400" />Last updated: {fmtLong(new Date())}</p>
         </div>
-        <button onClick={() => navigate('/vaccinations/add')}
-          className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 shadow-sm">
-          <Plus className="w-4 h-4" /> Add Vaccination
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={refresh} disabled={false}
+            className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 shadow-sm">
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />Refresh
+          </button>
+          <button className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 shadow-sm">
+            <Download size={12} />Export
+          </button>
+          <button onClick={() => { closeAll(); setAddOpen(true); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm hover:-translate-y-0.5 transition-all">
+            <Plus size={13} /> Add Vaccination
+          </button>
+        </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="flex-1 flex flex-col overflow-hidden px-6 py-4 gap-4 bg-slate-100">
 
-        {/* Legend */}
-        <div className="flex items-center gap-4 mb-4 text-xs text-slate-500">
-          <span className="font-semibold text-slate-600">Dose status:</span>
-          <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" />Administered</span>
-          <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400" />Scheduled</span>
-          <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" />Missed</span>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {[
-            { label: 'Total Records', value: stats.total,     bg: 'bg-blue-50',    text: 'text-blue-700' },
-            { label: 'Ongoing',       value: stats.ongoing,   bg: 'bg-blue-50',    text: 'text-blue-600' },
-            { label: 'Completed',     value: stats.completed, bg: 'bg-emerald-50', text: 'text-emerald-700' },
-            { label: 'RIG Given',     value: stats.rigGiven,  bg: 'bg-purple-50',  text: 'text-purple-700' },
-          ].map((s) => (
-            <div key={s.label} className={`${s.bg} rounded-xl p-4 border border-white`}>
-              <p className="text-xs font-medium text-slate-500 mb-1">{s.label}</p>
-              <p className={`text-3xl font-bold ${s.text}`}>{s.value}</p>
-            </div>
-          ))}
+        {/* Stat Cards */}
+        <div className="shrink-0 grid grid-cols-2 xl:grid-cols-4 gap-3">
+          {statCards.map(s => <StatCard key={s.label} {...s} loading={loading} />)}
         </div>
 
         {/* Table Card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden min-h-0">
 
           {/* Filters */}
-          <div className="flex flex-wrap items-center justify-between gap-4 p-5 border-b border-slate-100">
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <div className="shrink-0 bg-white p-3 shadow-sm flex flex-wrap items-center gap-2 border-b border-slate-100">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input type="text" placeholder="Search by name, case ID, or brand..."
                 value={search} onChange={e => handleSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" />
+                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
             </div>
-            <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-semibold text-slate-600">Status:</span>
               {['All', 'Ongoing', 'Completed'].map(s => (
                 <button key={s} onClick={() => handleStatusFilter(s)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200
-                    ${statusFilter === s ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === s ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600'}`}>
                   {s}
                 </button>
               ))}
@@ -207,76 +868,41 @@ export default function Vaccination() {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+          <div className="flex-1 overflow-x-auto min-h-0">
+            <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
+                <tr className="border-b-2 border-slate-100">
                   {['Case ID', 'Patient Name', 'Vaccine Brand', 'Day 0', 'Day 3', 'Day 7', 'Day 14', 'Day 28', 'RIG Given', 'Status', 'Actions'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-3 py-2.5 text-left text-xs font-bold text-blue-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={11} className="px-4 py-16 text-center text-slate-400">
-                      <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-blue-400" />
-                      <p className="text-sm font-medium">Loading vaccination records...</p>
-                    </td>
-                  </tr>
+                  <tr><td colSpan={11} className="py-16 text-center"><Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-blue-400" /><p className="text-sm text-slate-400">Loading vaccination records...</p></td></tr>
                 ) : error ? (
-                  <tr>
-                    <td colSpan={11} className="px-4 py-16 text-center text-red-400">
-                      <p className="text-sm font-medium">{error}</p>
-                      <button onClick={fetchVaccinations} className="mt-2 text-xs text-blue-500 underline">Retry</button>
-                    </td>
-                  </tr>
+                  <tr><td colSpan={11} className="py-16 text-center text-red-400"><p className="text-sm font-medium">{error}</p></td></tr>
                 ) : vaccinations.length === 0 ? (
-                  <tr>
-                    <td colSpan={11} className="px-4 py-16 text-center text-slate-400">
-                      <Syringe className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                      <p className="text-sm font-medium">No vaccination records found</p>
-                      <p className="text-xs mt-1">Try adjusting your search or add a new record</p>
-                    </td>
-                  </tr>
+                  <tr><td colSpan={11} className="py-16 text-center"><Syringe className="w-12 h-12 mx-auto mb-3 opacity-10" /><p className="text-sm text-slate-400 font-medium">No vaccination records found</p></td></tr>
                 ) : vaccinations.map((v, i) => (
-                  <tr key={v._id}
-                    className={`border-b border-slate-100 transition-colors hover:bg-blue-50/30 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`}>
-                    <td className="px-4 py-3.5">
-                      <span className="font-bold text-blue-600 text-xs bg-blue-50 px-2 py-1 rounded-lg">#{v.caseId}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <p className="font-semibold text-slate-800 text-sm whitespace-nowrap">{v.patientName}</p>
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-700 text-sm font-medium">{v.vaccineBrand}</td>
-
-                    {/* Day dose cells — show administered (green), scheduled (blue), missed (red) */}
+                  <tr key={v.id} className={`border-b border-slate-100 hover:bg-blue-50/50 transition-colors ${i % 2 === 1 ? 'bg-blue-50/20' : 'bg-white'}`}>
+                    <td className="px-3 py-2.5"><span className="font-bold text-blue-600 text-xs bg-blue-50 px-2 py-0.5 rounded-lg">#{v.caseId}</span></td>
+                    <td className="px-3 py-2.5"><p className="font-semibold text-slate-800 text-xs whitespace-nowrap">{v.patientName}</p></td>
+                    <td className="px-3 py-2.5 text-slate-700 text-xs font-medium">{v.vaccineBrand}</td>
                     {['day0','day3','day7','day14','day28'].map(day => (
-                      <td key={day} className="px-4 py-3.5">
-                        <DoseCell
-                          administered={v.schedule?.[day]}
-                          scheduled={v.schedule?.[`${day}Scheduled`]}
-                          missed={v.schedule?.[`${day}Missed`]}
-                        />
+                      <td key={day} className="px-3 py-2.5">
+                        <DoseCell administered={v[day]} scheduled={v[`${day}Scheduled`]} missed={v[`${day}Missed`]} />
                       </td>
                     ))}
-
-                    <td className="px-4 py-3.5"><RIGBadge given={v.rigGiven} /></td>
-                    <td className="px-4 py-3.5"><StatusBadge status={v.status} /></td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-1.5">
-                        <button onClick={() => navigate(`/vaccinations/view/${v._id}`)}
-                          className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-blue-600 hover:border-blue-400 transition-colors" title="View">
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => navigate(`/vaccinations/edit/${v._id}`)}
-                          className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-amber-600 hover:border-amber-400 transition-colors" title="Edit">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => setDeleteId(v._id)}
-                          className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-red-600 hover:border-red-400 transition-colors" title="Delete">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                    <td className="px-3 py-2.5"><RIGBadge given={v.rigGiven} /></td>
+                    <td className="px-3 py-2.5"><StatusBadge status={v.status} /></td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => { setAddOpen(false); setEditId(null); setViewId(viewId === v.id ? null : v.id); }}
+                          className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-colors ${viewId === v.id ? 'bg-blue-600 border-blue-600 text-white' : 'bg-blue-50 border-blue-100 text-blue-500 hover:bg-blue-100'}`}><Eye size={12} /></button>
+                        <button onClick={() => { setAddOpen(false); setViewId(null); setEditId(editId === v.id ? null : v.id); }}
+                          className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-colors ${editId === v.id ? 'bg-amber-500 border-amber-500 text-white' : 'bg-amber-50 border-amber-100 text-amber-500 hover:bg-amber-100'}`}><Pencil size={12} /></button>
+                        <button onClick={() => setDeleteId(v.id)} className="w-7 h-7 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center text-red-400 hover:bg-red-100 transition-colors"><Trash2 size={12} /></button>
                       </div>
                     </td>
                   </tr>
@@ -287,26 +913,11 @@ export default function Vaccination() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100">
-              <p className="text-xs text-slate-500">
-                Showing <span className="font-semibold text-slate-700">{(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, total)}</span> of <span className="font-semibold text-slate-700">{total}</span> records
-              </p>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                  className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:text-blue-600 hover:border-blue-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                  <button key={n} onClick={() => setPage(n)}
-                    className={`w-8 h-8 rounded-lg border text-xs font-semibold transition-all
-                      ${page === n ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 text-slate-500 hover:text-blue-600 hover:border-blue-400'}`}>
-                    {n}
-                  </button>
-                ))}
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                  className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:text-blue-600 hover:border-blue-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+            <div className="shrink-0 flex items-center justify-between px-3 py-2.5 border-t border-slate-100 bg-white">
+              <p className="text-xs text-slate-500">Showing <span className="font-semibold text-slate-700">{total}</span> of <span className="font-semibold text-slate-700">{total}</span> records</p>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Previous</button>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
               </div>
             </div>
           )}

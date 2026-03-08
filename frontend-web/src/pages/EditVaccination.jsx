@@ -14,7 +14,6 @@ const DOSE_SCHEDULE = [
   { key: 'day28', label: 'Day 28', description: '4 weeks after initial' },
 ];
 
-// status: 'pending' | 'done' | 'missed'
 const INITIAL_DOSE = { scheduledDate: '', administeredDate: '', status: 'pending' };
 
 export default function EditVaccination() {
@@ -50,19 +49,19 @@ export default function EditVaccination() {
           rigType:             v.rigType || '',
           rigDateAdministered: v.rigDateAdministered
             ? new Date(v.rigDateAdministered).toISOString().split('T')[0] : '',
-          rigDosage:  v.rigDosage || '',
-          status:     v.status || '',
+          rigDosage: v.rigDosage || '',
+          status:    v.status || '',
         });
 
-        const sched = v.schedule || {};
+        // ✅ Fixed: use flat fields v.day0, v.day0Scheduled, v.day0Missed
         const toStr = (val) => val ? new Date(val).toISOString().split('T')[0] : '';
 
         setDoses({
-          day0:  { scheduledDate: toStr(sched.day0Scheduled),  administeredDate: toStr(sched.day0),  status: sched.day0Missed ? 'missed' : sched.day0  ? 'done' : 'pending' },
-          day3:  { scheduledDate: toStr(sched.day3Scheduled),  administeredDate: toStr(sched.day3),  status: sched.day3Missed ? 'missed' : sched.day3  ? 'done' : 'pending' },
-          day7:  { scheduledDate: toStr(sched.day7Scheduled),  administeredDate: toStr(sched.day7),  status: sched.day7Missed ? 'missed' : sched.day7  ? 'done' : 'pending' },
-          day14: { scheduledDate: toStr(sched.day14Scheduled), administeredDate: toStr(sched.day14), status: sched.day14Missed ? 'missed' : sched.day14 ? 'done' : 'pending' },
-          day28: { scheduledDate: toStr(sched.day28Scheduled), administeredDate: toStr(sched.day28), status: sched.day28Missed ? 'missed' : sched.day28 ? 'done' : 'pending' },
+          day0:  { scheduledDate: toStr(v.day0Scheduled),  administeredDate: toStr(v.day0),  status: v.day0Missed  ? 'missed' : v.day0  ? 'done' : 'pending' },
+          day3:  { scheduledDate: toStr(v.day3Scheduled),  administeredDate: toStr(v.day3),  status: v.day3Missed  ? 'missed' : v.day3  ? 'done' : 'pending' },
+          day7:  { scheduledDate: toStr(v.day7Scheduled),  administeredDate: toStr(v.day7),  status: v.day7Missed  ? 'missed' : v.day7  ? 'done' : 'pending' },
+          day14: { scheduledDate: toStr(v.day14Scheduled), administeredDate: toStr(v.day14), status: v.day14Missed ? 'missed' : v.day14 ? 'done' : 'pending' },
+          day28: { scheduledDate: toStr(v.day28Scheduled), administeredDate: toStr(v.day28), status: v.day28Missed ? 'missed' : v.day28 ? 'done' : 'pending' },
         });
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to load vaccination');
@@ -78,23 +77,18 @@ export default function EditVaccination() {
   const updateDose = (key, field, val) =>
     setDoses(prev => ({ ...prev, [key]: { ...prev[key], [field]: val } }));
 
-  // Cycle: pending → done; if already done → pending; missed toggles independently
   const setDoseStatus = (key, newStatus) => {
     setDoses(prev => {
       const current = prev[key];
-      // Clicking done again → back to pending
       const resolvedStatus = current.status === newStatus ? 'pending' : newStatus;
       return {
         ...prev,
         [key]: {
           ...current,
           status: resolvedStatus,
-          // Auto-fill administered date when marking done
           administeredDate: resolvedStatus === 'done' && !current.administeredDate
             ? new Date().toISOString().split('T')[0]
-            : resolvedStatus !== 'done'
-              ? current.administeredDate  // keep it so user doesn't lose it
-              : current.administeredDate,
+            : current.administeredDate,
         },
       };
     });
@@ -103,6 +97,7 @@ export default function EditVaccination() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // ✅ Fixed: send flat schedule fields
       const schedulePayload = {};
       DOSE_SCHEDULE.forEach(({ key }) => {
         const d = doses[key];
@@ -111,8 +106,8 @@ export default function EditVaccination() {
         schedulePayload[`${key}Missed`]    = d.status === 'missed';
       });
 
-      const doneCount   = DOSE_SCHEDULE.filter(({ key }) => doses[key].status === 'done').length;
-      const autoStatus  = doneCount === DOSE_SCHEDULE.length ? 'Completed' : doneCount > 0 ? 'Ongoing' : form.status;
+      const doneCount  = DOSE_SCHEDULE.filter(({ key }) => doses[key].status === 'done').length;
+      const autoStatus = doneCount === DOSE_SCHEDULE.length ? 'Completed' : doneCount > 0 ? 'Ongoing' : form.status;
 
       await apiClient.put(`/vaccinations/${id}`, {
         vaccineBrand:        form.vaccineBrand,
@@ -137,7 +132,6 @@ export default function EditVaccination() {
   const missedCount = DOSE_SCHEDULE.filter(({ key }) => doses[key].status === 'missed').length;
   const progressPct = (doneCount / DOSE_SCHEDULE.length) * 100;
 
-  // Row styling per status
   const rowStyle = (status) => {
     if (status === 'done')   return 'bg-emerald-50/50 border-l-4 border-l-emerald-400';
     if (status === 'missed') return 'bg-red-50/50 border-l-4 border-l-red-400';
@@ -165,8 +159,6 @@ export default function EditVaccination() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-
-      {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-6 h-[70px] flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(`/vaccinations/view/${id}`)}
@@ -226,7 +218,6 @@ export default function EditVaccination() {
             </div>
           </div>
 
-          {/* Column headers */}
           <div className="grid grid-cols-[160px_1fr_1fr_120px] gap-3 px-5 py-2.5 bg-slate-50 border-b border-slate-100">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Dose</span>
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Scheduled Date</span>
@@ -236,15 +227,13 @@ export default function EditVaccination() {
 
           <div className="divide-y divide-slate-100">
             {DOSE_SCHEDULE.map(({ key, label, description }, idx) => {
-              const dose = doses[key];
+              const dose     = doses[key];
               const isDone   = dose.status === 'done';
               const isMissed = dose.status === 'missed';
 
               return (
                 <div key={key}
                   className={`grid grid-cols-[160px_1fr_1fr_120px] gap-3 items-center px-5 py-4 transition-all ${rowStyle(dose.status)}`}>
-
-                  {/* Dose Label */}
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-sm font-bold ${isDone ? 'text-emerald-700' : isMissed ? 'text-red-600' : 'text-slate-700'}`}>
@@ -255,64 +244,38 @@ export default function EditVaccination() {
                           Initial
                         </span>
                       )}
-                      {isDone && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">
-                          Done ✓
-                        </span>
-                      )}
-                      {isMissed && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-600">
-                          Missed ✗
-                        </span>
-                      )}
+                      {isDone   && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">Done ✓</span>}
+                      {isMissed && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-600">Missed ✗</span>}
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5">{description}</p>
                   </div>
 
-                  {/* Scheduled Date — always editable */}
-                  <input
-                    type="date"
-                    value={dose.scheduledDate}
+                  <input type="date" value={dose.scheduledDate}
                     onChange={e => updateDose(key, 'scheduledDate', e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
-                  />
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" />
 
-                  {/* Administered Date — editable only when done */}
-                  <input
-                    type="date"
-                    value={dose.administeredDate}
+                  <input type="date" value={dose.administeredDate}
                     onChange={e => updateDose(key, 'administeredDate', e.target.value)}
                     disabled={!isDone}
                     className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all
                       ${isDone
                         ? 'border-emerald-300 text-emerald-700 bg-white focus:border-emerald-400 focus:ring-emerald-100'
-                        : 'border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed'}`}
-                  />
+                        : 'border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed'}`} />
 
-                  {/* Done + Missed buttons */}
                   <div className="flex items-center justify-center gap-1.5">
-                    {/* Done button */}
-                    <button
-                      onClick={() => setDoseStatus(key, 'done')}
-                      title={isDone ? 'Mark as pending' : 'Mark as done'}
+                    <button onClick={() => setDoseStatus(key, 'done')}
                       className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all
                         ${isDone
                           ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
                           : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50'}`}>
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Done
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Done
                     </button>
-
-                    {/* Missed button */}
-                    <button
-                      onClick={() => setDoseStatus(key, 'missed')}
-                      title={isMissed ? 'Unmark missed' : 'Mark as missed'}
+                    <button onClick={() => setDoseStatus(key, 'missed')}
                       className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all
                         ${isMissed
                           ? 'bg-red-500 border-red-500 text-white shadow-sm'
                           : 'bg-white border-slate-200 text-slate-400 hover:border-red-400 hover:text-red-500 hover:bg-red-50'}`}>
-                      <XCircle className="w-3.5 h-3.5" />
-                      Missed
+                      <XCircle className="w-3.5 h-3.5" /> Missed
                     </button>
                   </div>
                 </div>
@@ -320,7 +283,6 @@ export default function EditVaccination() {
             })}
           </div>
 
-          {/* Legend */}
           <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center gap-5 text-xs text-slate-500">
             <span className="font-semibold text-slate-600">Status key:</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400" /> Done (administered)</span>
@@ -332,17 +294,12 @@ export default function EditVaccination() {
         {/* Vaccine Info */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
           <h3 className="text-sm font-bold text-slate-800">Vaccine Information</h3>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Vaccine Brand</label>
-            <input
-              value={form.vaccineBrand}
-              onChange={e => setField('vaccineBrand')(e.target.value)}
+            <input value={form.vaccineBrand} onChange={e => setField('vaccineBrand')(e.target.value)}
               placeholder="e.g. Vaxirab, Verorab"
-              className="px-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
-            />
+              className="px-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" />
           </div>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</label>
             <div className="flex items-center gap-2 px-3 py-2.5 border border-slate-100 rounded-xl bg-slate-50">
@@ -380,13 +337,10 @@ export default function EditVaccination() {
               ].map(({ field, label, placeholder, type }) => (
                 <div key={field} className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</label>
-                  <input
-                    type={type}
-                    value={form[field]}
+                  <input type={type} value={form[field]}
                     onChange={e => setField(field)(e.target.value)}
                     placeholder={placeholder}
-                    className="px-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all"
-                  />
+                    className="px-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all" />
                 </div>
               ))}
             </div>

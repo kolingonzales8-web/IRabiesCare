@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, X, Loader2, ChevronDown } from 'lucide-react';
+import { Save, X, Loader2, ChevronDown, CheckCircle2 } from 'lucide-react';
 import apiClient from '../api/client';
 
 const initial = {
@@ -8,13 +8,10 @@ const initial = {
   animalSpecies: 'Dog',
   animalOwnership: 'Stray',
   animalVaccinated: false,
-  ownerName: '',
-  ownerContact: '',
   observationStartDate: '',
   observationEndDate: '',
   observationStatus: 'Under Observation',
   animalOutcome: 'Alive',
-  dateOfOutcome: '',
   remarks: '',
 };
 
@@ -32,27 +29,37 @@ const Select = ({ children, ...props }) => (
     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
   </div>
 );
-const SectionCard = ({ title, children }) => (
+const SectionCard = ({ title, subtitle, children }) => (
   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-    <h3 className="text-sm font-bold text-slate-700 mb-4 pb-2 border-b border-slate-100">{title}</h3>
+    <div className="mb-4 pb-2 border-b border-slate-100">
+      <h3 className="text-sm font-bold text-slate-700">{title}</h3>
+      {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+    </div>
     {children}
   </div>
 );
 
+// Map case model values → form values
+const mapAnimalSpecies    = (v) => v === 'Dog' ? 'Dog' : v === 'Cat' ? 'Cat' : 'Others';
+const mapAnimalOwnership  = (v) => v === 'Owned' ? 'Owned' : v === 'Stray' ? 'Stray' : 'Unknown';
+const mapAnimalVaccinated = (v) => v === 'Yes' ? true : false;
+
 export default function AddAnimal() {
   const navigate = useNavigate();
-  const [form, setForm] = useState(initial);
-  const [cases, setCases] = useState([]);
+  const [form, setForm]               = useState(initial);
+  const [cases, setCases]             = useState([]);
   const [loadingCases, setLoadingCases] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+  const [loadingCase, setLoadingCase] = useState(false); // loading single case
+  const [autoFilled, setAutoFilled]   = useState(false); // show auto-fill banner
+  const [submitting, setSubmitting]   = useState(false);
+  const [error, setError]             = useState(null);
 
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
+  // Load all cases for dropdown
   useEffect(() => {
     const fetchCases = async () => {
       try {
-        // Request ALL cases (admin endpoint) with a large limit so the dropdown shows every case
         const res = await apiClient.get('/cases/all', { params: { limit: 10000 } });
         setCases(res.data.cases || res.data || []);
       } catch (err) {
@@ -63,6 +70,40 @@ export default function AddAnimal() {
     };
     fetchCases();
   }, []);
+
+  // ✅ When case is selected — fetch case details and auto-fill animal fields
+  const handleCaseSelect = async (caseId) => {
+    set('caseId', caseId);
+    setAutoFilled(false);
+
+    if (!caseId) return;
+
+    setLoadingCase(true);
+    try {
+      const res = await apiClient.get(`/cases/${caseId}`);
+      const c = res.data;
+
+      // Auto-fill animal fields from the case data
+      setForm(prev => ({
+        ...prev,
+        caseId,
+        animalSpecies:    mapAnimalSpecies(c.animalInvolved),
+        animalOwnership:  mapAnimalOwnership(c.animalStatus),
+        animalVaccinated: mapAnimalVaccinated(c.animalVaccinated),
+        // Pre-fill observation start from exposure date
+        observationStartDate: c.dateOfExposure
+          ? new Date(c.dateOfExposure).toISOString().split('T')[0]
+          : prev.observationStartDate,
+      }));
+
+      setAutoFilled(true);
+    } catch (err) {
+      // silently fail — user can still fill manually
+      console.log('Failed to fetch case details:', err.message);
+    } finally {
+      setLoadingCase(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -75,14 +116,12 @@ export default function AddAnimal() {
       animalSpecies:        form.animalSpecies,
       animalOwnership:      form.animalOwnership,
       animalVaccinated:     form.animalVaccinated,
-      ownerName:            form.animalOwnership === 'Owned' ? form.ownerName : null,
-      ownerContact:         form.animalOwnership === 'Owned' ? form.ownerContact : null,
+     
       observationStartDate: form.observationStartDate || null,
-      observationEndDate:   form.observationEndDate || null,
+      observationEndDate:   form.observationEndDate   || null,
       observationStatus:    form.observationStatus,
       animalOutcome:        form.animalOutcome,
-      dateOfOutcome:        form.dateOfOutcome || null,
-      remarks:              form.remarks || null,
+      remarks:              form.remarks       || null,
     };
 
     setSubmitting(true);
@@ -127,6 +166,14 @@ export default function AddAnimal() {
           </div>
         )}
 
+        {/* ✅ Auto-fill success banner */}
+        {autoFilled && (
+          <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm px-4 py-3 rounded-xl">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <span>Animal information auto-filled from the selected case. You can still edit any field below.</span>
+          </div>
+        )}
+
         {/* 1. Link Case */}
         <SectionCard title="1. Link to Registered Case">
           {loadingCases ? (
@@ -136,20 +183,47 @@ export default function AddAnimal() {
           ) : (
             <div>
               <Label>Select Case</Label>
-              <Select value={form.caseId} onChange={e => set('caseId', e.target.value)}>
-                <option value="">— Select a case —</option>
-                {cases.map(c => (
-                  <option key={c._id} value={c._id}>
-                    #{c.caseId} — {c.fullName}
-                  </option>
-                ))}
-              </Select>
+              <div className="relative">
+                <Select
+                  value={form.caseId}
+                  onChange={e => handleCaseSelect(e.target.value)}
+                  disabled={loadingCase}
+                >
+                  <option value="">— Select a case —</option>
+                  {cases.map(c => (
+                    <option key={c.id} value={c.id}>
+                      #{c.caseId} — {c.fullName}
+                    </option>
+                  ))}
+                </Select>
+                {loadingCase && (
+                  <div className="absolute right-10 top-1/2 -translate-y-1/2">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                  </div>
+                )}
+              </div>
+
+              {/* ✅ Show selected case summary card */}
+              {form.caseId && !loadingCase && (() => {
+                const selected = cases.find(c => c.id === Number(form.caseId) || c.id === form.caseId);
+                return selected ? (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-slate-600 space-y-1">
+                    <p><span className="font-semibold text-slate-700">Patient:</span> {selected.fullName}</p>
+                    <p><span className="font-semibold text-slate-700">Exposure Type:</span> {selected.exposureType || '—'}</p>
+                    <p><span className="font-semibold text-slate-700">Animal Reported:</span> {selected.animalInvolved || '—'} · {selected.animalStatus || '—'}</p>
+                    <p><span className="font-semibold text-slate-700">Date of Exposure:</span> {selected.dateOfExposure ? new Date(selected.dateOfExposure).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—'}</p>
+                  </div>
+                ) : null;
+              })()}
             </div>
           )}
         </SectionCard>
 
-        {/* 2. Animal Profile */}
-        <SectionCard title="2. Animal Profile">
+        {/* 2. Animal Profile — ✅ auto-filled from case */}
+        <SectionCard
+          title="2. Animal Profile"
+          subtitle={autoFilled ? '✅ Auto-filled from case — edit if needed' : undefined}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Animal Species</Label>
@@ -184,20 +258,7 @@ export default function AddAnimal() {
               </div>
             </div>
 
-            {form.animalOwnership === 'Owned' && (
-              <>
-                <div>
-                  <Label>Owner Name</Label>
-                  <Input type="text" placeholder="Enter owner's full name"
-                    value={form.ownerName} onChange={e => set('ownerName', e.target.value)} />
-                </div>
-                <div>
-                  <Label>Owner Contact Number</Label>
-                  <Input type="text" placeholder="e.g. 09XXXXXXXXX"
-                    value={form.ownerContact} onChange={e => set('ownerContact', e.target.value)} />
-                </div>
-              </>
-            )}
+           
           </div>
         </SectionCard>
 
@@ -208,6 +269,9 @@ export default function AddAnimal() {
               <Label>Observation Start Date</Label>
               <Input type="date" value={form.observationStartDate}
                 onChange={e => set('observationStartDate', e.target.value)} />
+              {autoFilled && (
+                <p className="text-xs text-blue-500 mt-1">Pre-filled from date of exposure</p>
+              )}
             </div>
             <div>
               <Label>Observation End Date</Label>
@@ -238,11 +302,7 @@ export default function AddAnimal() {
                 <option>Tested Negative</option>
               </Select>
             </div>
-            <div>
-              <Label>Date of Outcome</Label>
-              <Input type="date" value={form.dateOfOutcome}
-                onChange={e => set('dateOfOutcome', e.target.value)} />
-            </div>
+          
             <div className="sm:col-span-2">
               <Label>Remarks</Label>
               <textarea

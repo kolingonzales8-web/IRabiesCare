@@ -1,76 +1,58 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
+const Case = require('./case.model');
+const User = require('./user.model');
 
-const animalSchema = new mongoose.Schema({
-  // Link to Case
-  case: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Case',
-    required: [true, 'Linked case is required'],
-    unique: true, // one animal record per case
+const Animal = sequelize.define('Animal', {
+  id: { 
+    type: DataTypes.INTEGER, 
+    autoIncrement: true, 
+    primaryKey: true 
+  },
+  caseId: { 
+    type: DataTypes.INTEGER, 
+    allowNull: false, 
+    unique: true, // one animal per case
+    references: { model: Case, key: 'id' }
+  },
+  createdBy: { 
+    type: DataTypes.INTEGER, 
+    allowNull: false,
+    references: { model: User, key: 'id' }
   },
 
   // A. Animal Profile
-  animalSpecies: {
-    type: String,
-    required: [true, 'Animal species is required'],
-    enum: ['Dog', 'Cat', 'Others'],
+  animalSpecies: { 
+    type: DataTypes.ENUM('Dog', 'Cat', 'Others'), 
+    allowNull: false 
   },
-  animalOwnership: {
-    type: String,
-    required: [true, 'Animal ownership is required'],
-    enum: ['Owned', 'Stray', 'Unknown'],
+  animalOwnership: { 
+    type: DataTypes.ENUM('Owned', 'Stray', 'Unknown'), 
+    allowNull: false 
   },
-  animalVaccinated: {
-    type: Boolean,
-    default: false,
-  },
-  ownerName: {
-    type: String,
-    trim: true,
-    default: null,
-  },
-  ownerContact: {
-    type: String,
-    trim: true,
-    default: null,
-  },
+  animalVaccinated: { type: DataTypes.BOOLEAN, defaultValue: false },
+  ownerName:        { type: DataTypes.STRING,  defaultValue: null },
+  ownerContact:     { type: DataTypes.STRING,  defaultValue: null },
 
   // B. Observation Period
-  observationStartDate: {
-    type: Date,
-    default: null,
-  },
-  observationEndDate: {
-    type: Date,
-    default: null,
-  },
-  observationStatus: {
-    type: String,
-    default: 'Under Observation',
-    enum: ['Under Observation', 'Completed Observation', 'Lost to Follow-up'],
+  observationStartDate: { type: DataTypes.DATE, defaultValue: null },
+  observationEndDate:   { type: DataTypes.DATE, defaultValue: null },
+  observationStatus: { 
+    type: DataTypes.ENUM('Under Observation', 'Completed Observation', 'Lost to Follow-up'), 
+    defaultValue: 'Under Observation' 
   },
 
   // C. Outcome Logging
-  animalOutcome: {
-    type: String,
-    default: 'Alive',
-    enum: ['Alive', 'Died', 'Tested Positive', 'Tested Negative'],
+  animalOutcome: { 
+    type: DataTypes.ENUM('Alive', 'Died', 'Tested Positive', 'Tested Negative'), 
+    defaultValue: 'Alive' 
   },
-  dateOfOutcome: {
-    type: Date,
-    default: null,
-  },
-  remarks: {
-    type: String,
-    trim: true,
-    default: null,
-  },
+  dateOfOutcome: { type: DataTypes.DATE,   defaultValue: null },
+  remarks:       { type: DataTypes.STRING, defaultValue: null },
 
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
 }, { timestamps: true });
 
-module.exports = mongoose.model('Animal', animalSchema);
+Animal.belongsTo(Case, { foreignKey: 'caseId', as: 'linkedCase' });
+Animal.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+
+module.exports = Animal;

@@ -1,51 +1,64 @@
+const { Op } = require('sequelize');
 const Animal = require('../models/animal.model');
-const Case = require('../models/case.model');
+const Case   = require('../models/case.model');
 
-// Get all animal records (admin sees all)
+// Get all animal records — scoped by role
 exports.getAllAnimals = async (req, res) => {
   try {
     const { status, search, page = 1, limit = 10 } = req.query;
 
-    const query = {};
-    if (status && status !== 'All') query.observationStatus = status;
+    const where = {};
+    if (status && status !== 'All') where.observationStatus = status;
 
-    let animals = await Animal.find(query)
-      .populate('case', 'caseId fullName dateOfExposure')
-      .sort({ createdAt: -1 })
-      .lean();
+    const caseWhere = req.user.role === 'admin'
+      ? {}
+      : { assignedTo: req.user.id };
 
-    // Search on populated case fields
     if (search) {
-      const s = search.toLowerCase();
-      animals = animals.filter(a =>
-        a.case?.caseId?.includes(s) ||
-        a.case?.fullName?.toLowerCase().includes(s) ||
-        a.animalSpecies?.toLowerCase().includes(s) ||
-        a.ownerName?.toLowerCase().includes(s)
-      );
+      const s = `%${search}%`;
+      where[Op.or] = [
+        { animalSpecies: { [Op.like]: s } },
+        { ownerName:     { [Op.like]: s } },
+      ];
+      caseWhere[Op.or] = [
+        { caseId:   { [Op.like]: s } },
+        { fullName: { [Op.like]: s } },
+      ];
     }
 
-    const total = animals.length;
+    const animals = await Animal.findAll({
+      where,
+      include: [{
+        model: Case,
+        as: 'linkedCase',
+        attributes: ['id', 'caseId', 'fullName', 'dateOfExposure'],
+        where:    caseWhere,
+        required: req.user.role !== 'admin', // ✅ staff: required=true to scope, admin: false to allow all
+      }],
+      order: [['createdAt', 'DESC']],
+    });
+
+    const total      = animals.length;
     const totalPages = Math.ceil(total / limit);
-    const paginated = animals.slice((page - 1) * limit, page * limit);
+    const paginated  = animals.slice((page - 1) * limit, page * limit);
 
     const result = paginated.map(a => ({
-      _id: a._id,
-      caseId: a.case?.caseId,
-      caseRef: a.case?._id,
-      patientName: a.case?.fullName,
-      animalSpecies: a.animalSpecies,
-      animalOwnership: a.animalOwnership,
-      animalVaccinated: a.animalVaccinated,
-      ownerName: a.ownerName,
-      ownerContact: a.ownerContact,
+      id:                   a.id,
+      caseId:               a.linkedCase?.caseId,
+      caseRef:              a.linkedCase?.id,
+      patientName:          a.linkedCase?.fullName,
+      animalSpecies:        a.animalSpecies,
+      animalOwnership:      a.animalOwnership,
+      animalVaccinated:     a.animalVaccinated,
+      ownerName:            a.ownerName,
+      ownerContact:         a.ownerContact,
       observationStartDate: a.observationStartDate,
-      observationEndDate: a.observationEndDate,
-      observationStatus: a.observationStatus,
-      animalOutcome: a.animalOutcome,
-      dateOfOutcome: a.dateOfOutcome,
-      remarks: a.remarks,
-      createdAt: a.createdAt,
+      observationEndDate:   a.observationEndDate,
+      observationStatus:    a.observationStatus,
+      animalOutcome:        a.animalOutcome,
+      dateOfOutcome:        a.dateOfOutcome,
+      remarks:              a.remarks,
+      createdAt:            a.createdAt,
     }));
 
     res.status(200).json({ animals: result, total, page: Number(page), totalPages });
@@ -57,8 +70,13 @@ exports.getAllAnimals = async (req, res) => {
 // Get single animal record
 exports.getAnimalById = async (req, res) => {
   try {
-    const animal = await Animal.findById(req.params.id)
-      .populate('case', 'caseId fullName age sex address contact dateOfExposure exposureType');
+    const animal = await Animal.findByPk(req.params.id, {
+      include: [{
+        model: Case,
+        as: 'linkedCase',
+        attributes: ['id', 'caseId', 'fullName', 'age', 'sex', 'address', 'contact', 'dateOfExposure', 'exposureType'],
+      }],
+    });
     if (!animal) return res.status(404).json({ message: 'Animal record not found' });
     res.status(200).json(animal);
   } catch (error) {
@@ -75,28 +93,22 @@ exports.createAnimal = async (req, res) => {
       observationStatus, animalOutcome, dateOfOutcome, remarks,
     } = req.body;
 
-    // Verify case exists
-    const linkedCase = await Case.findById(caseId);
+    const linkedCase = await Case.findByPk(caseId);
     if (!linkedCase) return res.status(404).json({ message: 'Case not found' });
 
-    // Prevent duplicate animal record for same case
-    const existing = await Animal.findOne({ case: caseId });
+    const existing = await Animal.findOne({ where: { caseId } });
     if (existing) return res.status(400).json({ message: 'An animal record already exists for this case' });
 
     const newAnimal = await Animal.create({
-      case: caseId,
-      animalSpecies,
-      animalOwnership,
-      animalVaccinated,
-      ownerName: animalOwnership === 'Owned' ? ownerName : null,
-      ownerContact: animalOwnership === 'Owned' ? ownerContact : null,
+      caseId, animalSpecies, animalOwnership, animalVaccinated,
+      ownerName:            animalOwnership === 'Owned' ? ownerName    : null,
+      ownerContact:         animalOwnership === 'Owned' ? ownerContact : null,
       observationStartDate: observationStartDate || null,
-      observationEndDate: observationEndDate || null,
-      observationStatus,
-      animalOutcome,
+      observationEndDate:   observationEndDate   || null,
+      observationStatus, animalOutcome,
       dateOfOutcome: dateOfOutcome || null,
-      remarks: remarks || null,
-      createdBy: req.user._id,
+      remarks:       remarks       || null,
+      createdBy:     req.user.id,
     });
 
     res.status(201).json({ message: 'Animal record created successfully', animal: newAnimal });
@@ -108,18 +120,16 @@ exports.createAnimal = async (req, res) => {
 // Update animal record
 exports.updateAnimal = async (req, res) => {
   try {
+    const animal = await Animal.findByPk(req.params.id);
+    if (!animal) return res.status(404).json({ message: 'Animal record not found' });
+
     if (req.body.animalOwnership && req.body.animalOwnership !== 'Owned') {
-      req.body.ownerName = null;
+      req.body.ownerName    = null;
       req.body.ownerContact = null;
     }
 
-    const updated = await Animal.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!updated) return res.status(404).json({ message: 'Animal record not found' });
-    res.status(200).json({ message: 'Animal record updated successfully', animal: updated });
+    await animal.update(req.body);
+    res.status(200).json({ message: 'Animal record updated successfully', animal });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -128,21 +138,37 @@ exports.updateAnimal = async (req, res) => {
 // Delete animal record
 exports.deleteAnimal = async (req, res) => {
   try {
-    const deleted = await Animal.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: 'Animal record not found' });
+    const animal = await Animal.findByPk(req.params.id);
+    if (!animal) return res.status(404).json({ message: 'Animal record not found' });
+
+    await animal.destroy();
     res.status(200).json({ message: 'Animal record deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Stats
+// Stats — scoped by role
 exports.getAnimalStats = async (req, res) => {
   try {
-    const total                = await Animal.countDocuments({});
-    const underObservation     = await Animal.countDocuments({ observationStatus: 'Under Observation' });
-    const completedObservation = await Animal.countDocuments({ observationStatus: 'Completed Observation' });
-    const lostToFollowUp       = await Animal.countDocuments({ observationStatus: 'Lost to Follow-up' });
+    const caseWhere = req.user.role === 'admin'
+      ? {}
+      : { assignedTo: req.user.id };
+
+    const scopedInclude = [{
+      model: Case,
+      as: 'linkedCase',
+      required: true,
+      attributes: [],
+      where: caseWhere,
+    }];
+
+    const [total, underObservation, completedObservation, lostToFollowUp] = await Promise.all([
+      Animal.count({ include: scopedInclude }),
+      Animal.count({ where: { observationStatus: 'Under Observation'       }, include: scopedInclude }),
+      Animal.count({ where: { observationStatus: 'Completed Observation'   }, include: scopedInclude }),
+      Animal.count({ where: { observationStatus: 'Lost to Follow-up'       }, include: scopedInclude }),
+    ]);
 
     res.status(200).json({ total, underObservation, completedObservation, lostToFollowUp });
   } catch (error) {

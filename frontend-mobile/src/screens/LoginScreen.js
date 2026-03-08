@@ -17,11 +17,9 @@ export default function LoginScreen({ navigation }) {
   const [passFocused, setPassFocused]   = useState(false);
   const { setAuth } = useAuthStore();
 
-  // ── Refs for programmatic focus ────────────────────────────────────────────
   const emailRef    = useRef(null);
   const passwordRef = useRef(null);
 
-  // ── Animations ─────────────────────────────────────────────────────────────
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const logoScale = useRef(new Animated.Value(0.75)).current;
@@ -42,7 +40,6 @@ export default function LoginScreen({ navigation }) {
     ).start();
   }, []);
 
-  // ── Login ───────────────────────────────────────────────────────────────────
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Missing Fields', 'Please enter your email and password.');
@@ -66,25 +63,24 @@ export default function LoginScreen({ navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#1e3a7c" />
+      <StatusBar barStyle="light-content" backgroundColor="#1565C0" />
 
-      {/* Background blobs */}
-      <View style={[styles.blob, styles.blobTL]} />
-      <View style={[styles.blob, styles.blobBR]} />
-      <View style={[styles.blob, styles.blobMid]} />
+      {/* Decorative circles — matching Dashboard header */}
+      <View style={styles.circle1} />
+      <View style={styles.circle2} />
+      <View style={styles.circle3} />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-
-        {/* ── Brand ── */}
+        {/* Brand */}
         <Animated.View style={[styles.brandSection, { opacity: fadeAnim, transform: [{ scale: logoScale }] }]}>
           <Animated.View style={[styles.glowRing, { transform: [{ scale: pulseAnim }] }]} />
           <View style={styles.logoCircle}>
             <View style={styles.shieldWrap}>
-              <Shield color="#2d4a8a" fill="#2d4a8a" size={50} />
+              <Shield color="#1565C0" fill="#1565C0" size={50} />
               <View style={styles.crossH} />
               <View style={styles.crossV} />
               <View style={styles.redDot}>
@@ -97,22 +93,21 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.brandSub}>CASE MANAGEMENT SYSTEM</Text>
         </Animated.View>
 
-        {/* ── Card ── */}
+        {/* Card */}
         <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.cardAccent} />
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Welcome Back</Text>
             <Text style={styles.cardSubtitle}>Access your patient portal</Text>
 
-            {/* ── Email Field ── */}
+            {/* Email */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email Address</Text>
-              {/* Pressable wrapper — tapping anywhere in the row focuses the input */}
               <Pressable
                 style={[styles.inputRow, emailFocused && styles.inputRowFocused]}
                 onPress={() => emailRef.current?.focus()}
               >
-                <Mail color={emailFocused ? '#2d4a8a' : '#94a3b8'} size={17} />
+                <Mail color={emailFocused ? '#1565C0' : '#94a3b8'} size={17} />
                 <TextInput
                   ref={emailRef}
                   style={styles.input}
@@ -133,14 +128,14 @@ export default function LoginScreen({ navigation }) {
               </Pressable>
             </View>
 
-            {/* ── Password Field ── */}
+            {/* Password */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
               <Pressable
                 style={[styles.inputRow, passFocused && styles.inputRowFocused]}
                 onPress={() => passwordRef.current?.focus()}
               >
-                <Lock color={passFocused ? '#2d4a8a' : '#94a3b8'} size={17} />
+                <Lock color={passFocused ? '#1565C0' : '#94a3b8'} size={17} />
                 <TextInput
                   ref={passwordRef}
                   style={styles.input}
@@ -155,7 +150,6 @@ export default function LoginScreen({ navigation }) {
                   returnKeyType="done"
                   onSubmitEditing={handleLogin}
                 />
-                {/* Eye toggle — stopPropagation so Pressable doesn't re-focus */}
                 <TouchableOpacity
                   onPress={() => setShowPassword(v => !v)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -167,12 +161,10 @@ export default function LoginScreen({ navigation }) {
               </Pressable>
             </View>
 
-            {/* Forgot */}
             <TouchableOpacity style={styles.forgotRow}>
               <Text style={styles.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
 
-            {/* Sign In */}
             <TouchableOpacity
               style={[styles.signInBtn, loading && styles.signInBtnDisabled]}
               onPress={handleLogin}
@@ -189,14 +181,12 @@ export default function LoginScreen({ navigation }) {
               )}
             </TouchableOpacity>
 
-            {/* Divider */}
             <View style={styles.divider}>
               <View style={styles.divLine} />
               <Text style={styles.divText}>or</Text>
               <View style={styles.divLine} />
             </View>
 
-            {/* Register */}
             <View style={styles.registerRow}>
               <Text style={styles.registerTxt}>Don't have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Register')} disabled={loading}>
@@ -206,7 +196,7 @@ export default function LoginScreen({ navigation }) {
           </View>
         </Animated.View>
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
           <View style={styles.footerRow}>
             <View style={styles.footerDot} />
@@ -214,28 +204,39 @@ export default function LoginScreen({ navigation }) {
           </View>
           <Text style={styles.footerVersion}>Rabies Prevention Program v1.0</Text>
         </Animated.View>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#2d4a8a' },
+  root: { flex: 1, backgroundColor: '#1565C0' },
 
-  blob:    { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.07)' },
-  blobTL:  { width: 320, height: 320, top: -100, left: -100 },
-  blobBR:  { width: 400, height: 400, bottom: -120, right: -120 },
-  blobMid: { width: 200, height: 200, top: '40%', left: '30%', backgroundColor: 'rgba(255,255,255,0.04)' },
+  /* Decorative circles — same as Dashboard & SplashScreen */
+  circle1: {
+    position: 'absolute', width: 320, height: 320, borderRadius: 160,
+    backgroundColor: 'rgba(0,188,212,0.22)',
+    top: -100, right: -100,
+  },
+  circle2: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(0,188,212,0.15)',
+    top: 60, right: 40,
+  },
+  circle3: {
+    position: 'absolute', width: 180, height: 180, borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    bottom: -40, left: -40,
+  },
 
   scroll: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 24, paddingTop: 64, paddingBottom: 36 },
 
-  // Brand
+  /* Brand */
   brandSection: { alignItems: 'center', marginBottom: 36 },
   glowRing: {
     position: 'absolute', top: -14,
     width: 148, height: 148, borderRadius: 74,
-    backgroundColor: 'rgba(255,255,255,0.13)',
+    backgroundColor: 'rgba(0,188,212,0.2)',
   },
   logoCircle: {
     width: 112, height: 112, borderRadius: 56, backgroundColor: '#fff',
@@ -259,22 +260,21 @@ const styles = StyleSheet.create({
   },
   dotH: { position: 'absolute', width: 8, height: 2, backgroundColor: '#fff', borderRadius: 1 },
   dotV: { position: 'absolute', width: 2, height: 8, backgroundColor: '#fff', borderRadius: 1 },
-
   brandName: { fontSize: 36, fontWeight: '700', color: '#fff', letterSpacing: 0.4, marginBottom: 5 },
   brandSub:  { fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: 3.5 },
 
-  // Card
+  /* Card */
   card: {
     width: '100%', borderRadius: 24, overflow: 'hidden', backgroundColor: '#fff',
     shadowColor: '#000', shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.22, shadowRadius: 28, elevation: 14,
   },
-  cardAccent: { height: 5, backgroundColor: '#2d4a8a', width: '100%' },
+  cardAccent: { height: 5, backgroundColor: '#1565C0', width: '100%' },
   cardBody:   { padding: 28 },
   cardTitle:    { fontSize: 22, fontWeight: '700', color: '#1e293b', marginBottom: 4 },
   cardSubtitle: { fontSize: 13, color: '#64748b', marginBottom: 28 },
 
-  // Inputs
+  /* Inputs */
   inputGroup: { marginBottom: 18 },
   label: { fontSize: 12, fontWeight: '700', color: '#475569', marginBottom: 8, letterSpacing: 0.3 },
   inputRow: {
@@ -284,22 +284,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   inputRowFocused: {
-    borderColor: '#2d4a8a', backgroundColor: '#fff',
-    shadowColor: '#2d4a8a', shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.12, shadowRadius: 6, elevation: 2,
+    borderColor: '#1565C0', backgroundColor: '#fff',
+    shadowColor: '#1565C0', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15, shadowRadius: 6, elevation: 2,
   },
-  input: {
-    flex: 1, paddingVertical: 14,
-    fontSize: 14, color: '#1e293b',
-  },
+  input: { flex: 1, paddingVertical: 14, fontSize: 14, color: '#1e293b' },
 
   forgotRow:  { alignSelf: 'flex-end', marginTop: -6, marginBottom: 22 },
-  forgotText: { fontSize: 13, color: '#2d4a8a', fontWeight: '600' },
+  forgotText: { fontSize: 13, color: '#1565C0', fontWeight: '600' },
 
   signInBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#2d4a8a', paddingVertical: 16, borderRadius: 14,
-    shadowColor: '#2d4a8a', shadowOffset: { width: 0, height: 6 },
+    backgroundColor: '#1565C0', paddingVertical: 16, borderRadius: 14,
+    shadowColor: '#1565C0', shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45, shadowRadius: 12, elevation: 8,
   },
   signInBtnDisabled: { opacity: 0.6 },
@@ -311,7 +308,7 @@ const styles = StyleSheet.create({
 
   registerRow: { flexDirection: 'row', justifyContent: 'center' },
   registerTxt:  { fontSize: 13, color: '#64748b' },
-  registerLink: { fontSize: 13, color: '#2d4a8a', fontWeight: '700' },
+  registerLink: { fontSize: 13, color: '#1565C0', fontWeight: '700' },
 
   footer:        { alignItems: 'center', marginTop: 30 },
   footerRow:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },

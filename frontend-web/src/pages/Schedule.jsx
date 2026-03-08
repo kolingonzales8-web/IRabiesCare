@@ -14,17 +14,17 @@ const SMS_TEMPLATES = {
 };
 
 const StatusStyles = {
-  Sent:    { color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500" },
-  Pending: { color: "text-amber-700",   bg: "bg-amber-50",   border: "border-amber-200",   dot: "bg-amber-500" },
-  Failed:  { color: "text-red-700",     bg: "bg-red-50",     border: "border-red-200",     dot: "bg-red-500" },
-  Missed:  { color: "text-slate-600",   bg: "bg-slate-100",  border: "border-slate-200",   dot: "bg-slate-400" },
+  Sent:    { bg: "bg-emerald-500", text: "text-white" },
+  Pending: { bg: "bg-amber-500", text: "text-white" },
+  Failed:  { bg: "bg-red-500", text: "text-white" },
+  Missed:  { bg: "bg-slate-400", text: "text-white" },
 };
 
 const Badge = ({ status }) => {
   const s = StatusStyles[status] || StatusStyles.Pending;
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${s.bg} ${s.color} ${s.border}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${s.bg} ${s.text} shadow-sm`}>
+      <span className="w-1 h-1 rounded-full bg-white/70" />
       {status.toUpperCase()}
     </span>
   );
@@ -77,14 +77,14 @@ function DashboardTab({ alerts, setAlerts, logs, setLogs, goConfig, patients, lo
       day:      a.vaccineDay,
       dueDate:  a.schedDate,
       daysLeft: Math.max(0, Math.ceil((new Date(a.schedDate) - today) / (1000 * 60 * 60 * 24))),
-      _id:      a._id,
+      _id:      a.id ,
     }));
 
   const stats = [
-    { label: "Reminders Today",   value: alerts.length,                                                             icon: Bell,         color: "text-blue-500",    bgColor: "bg-blue-50" },
-    { label: "Sent Successfully",  value: alerts.filter(a => a.status === "Sent").length,                            icon: CheckCircle,  color: "text-emerald-500", bgColor: "bg-emerald-50" },
-    { label: "Failed / Pending",   value: alerts.filter(a => ["Failed","Pending"].includes(a.status)).length,        icon: AlertCircle,  color: "text-amber-500",   bgColor: "bg-amber-50" },
-    { label: "Missed Follow-ups",  value: alerts.filter(a => a.status === "Missed").length,                          icon: Clock,        color: "text-red-500",     bgColor: "bg-red-50" },
+    { label: "Reminders Today",   value: alerts.length,                                                             icon: Bell,         gradient: "from-blue-600 to-blue-500",     iconBg: "bg-blue-700/40" },
+    { label: "Sent Successfully",  value: alerts.filter(a => a.status === "Sent").length,                            icon: CheckCircle,  gradient: "from-emerald-500 to-green-400", iconBg: "bg-emerald-700/40" },
+    { label: "Failed / Pending",   value: alerts.filter(a => ["Failed","Pending"].includes(a.status)).length,        icon: AlertCircle,  gradient: "from-amber-500 to-orange-400",  iconBg: "bg-amber-700/40" },
+    { label: "Missed Follow-ups",  value: alerts.filter(a => a.status === "Missed").length,                          icon: Clock,        gradient: "from-red-600 to-red-500",       iconBg: "bg-red-700/40" },
   ];
 
   const filtered = alerts.filter(a =>
@@ -94,11 +94,11 @@ function DashboardTab({ alerts, setAlerts, logs, setLogs, goConfig, patients, lo
   );
 
   const resend = async (a) => {
-    setSending(a._id);
+    setSending(a.id );
     try {
-      await apiClient.post(`/alerts/${a._id}/resend`);
+      await apiClient.post(`/alerts/${a.id }/resend`);
       const t = nowStr();
-      setAlerts(p => p.map(x => x._id === a._id ? { ...x, status: "Sent", sentAt: t, attempts: (x.attempts || 0) + 1 } : x));
+      setAlerts(p => p.map(x => x.id === a.id ? { ...x, status: "Sent", sentAt: t, attempts: (x.attempts || 0) + 1 } : x));
       setLogs(p => [{ _id: makeId("LOG", p), caseId: a.caseId, patient: a.patient, vaccineDay: a.vaccineDay, sentAt: t, status: "Sent", channel: a.channel, preview: `Resent alert for dose ${a.vaccineDay}` }, ...p]);
     } catch (err) {
       alert(`Error: ${err.response?.data?.message || 'Failed to resend'}`);
@@ -128,14 +128,17 @@ function DashboardTab({ alerts, setAlerts, logs, setLogs, goConfig, patients, lo
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {stats.map(s => (
-          <Card key={s.label} className="p-5 relative overflow-hidden">
-            <div className={`absolute top-0 left-0 right-0 h-1 ${s.color.replace('text-', 'bg-')}`} />
-            <div className={`absolute right-4 top-4 w-9 h-9 rounded-full ${s.bgColor} flex items-center justify-center opacity-40`}>
-              <s.icon className={`w-5 h-5 ${s.color}`} />
+          <div key={s.label} className={`bg-gradient-to-br ${s.gradient} rounded-2xl p-5 text-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all`}>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-white/80 mb-1">{s.label}</p>
+                <p className="text-4xl font-bold leading-none">{s.value}</p>
+              </div>
+              <div className={`w-10 h-10 rounded-xl ${s.iconBg} flex items-center justify-center`}>
+                <s.icon className="w-5 h-5 text-white" />
+              </div>
             </div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{s.label}</p>
-            <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
-          </Card>
+          </div>
         ))}
       </div>
 
@@ -155,7 +158,7 @@ function DashboardTab({ alerts, setAlerts, logs, setLogs, goConfig, patients, lo
         ) : (
           <div className="space-y-3">
             {upcomingDoses.map(u => (
-              <div key={u._id} className="flex items-center gap-3 bg-white border border-blue-100 rounded-lg p-3">
+              <div key={u.id } className="flex items-center gap-3 bg-white border border-blue-100 rounded-lg p-3">
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">👤</div>
                 <div className="flex-1">
                   <p className="font-semibold text-sm text-slate-900">{u.patient}</p>
@@ -222,7 +225,7 @@ function DashboardTab({ alerts, setAlerts, logs, setLogs, goConfig, patients, lo
               {filtered.length === 0 ? (
                 <tr><td colSpan={9} className="text-center py-8 text-slate-500 text-sm">No alerts match your search / filter.</td></tr>
               ) : filtered.map((a, i) => (
-                <tr key={a._id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                <tr key={a.id } className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
                   <td className="px-4 py-3 font-mono text-xs font-semibold text-blue-600">{a.caseId}</td>
                   <td className="px-4 py-3 font-semibold text-slate-900 text-sm">{a.patient}</td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">{a.contact}</td>
@@ -239,12 +242,12 @@ function DashboardTab({ alerts, setAlerts, logs, setLogs, goConfig, patients, lo
                         <Eye className="w-4 h-4" />
                       </button>
                       {["Failed","Missed","Pending"].includes(a.status) && (
-                        <button onClick={() => resend(a)} disabled={sending === a._id} title="Resend"
-                          className={`p-1.5 rounded ${sending === a._id ? 'bg-slate-100 text-slate-400' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
+                        <button onClick={() => resend(a)} disabled={sending === a.id } title="Resend"
+                          className={`p-1.5 rounded ${sending === a.id ? 'bg-slate-100 text-slate-400' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
                           <RotateCw className="w-4 h-4" />
                         </button>
                       )}
-                      <button onClick={() => setAlerts(p => p.filter(x => x._id !== a._id))} title="Delete" className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100">
+                      <button onClick={() => setAlerts(p => p.filter(x => x.id !== a.id ))} title="Delete" className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -295,7 +298,7 @@ function Configure({ alerts, setAlerts, logs, setLogs, patients }) {
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
 
-  const P = patients.find(p => p._id === form.patient);
+  const P = patients.find(p => p.id === form.patient);
   const days = P ? (VACCINE_DAYS[P.vaccine] || VACCINE_DAYS.Vaxirab) : ["Day 0","Day 3","Day 7","Day 14","Day 28"];
   const msg = form.customMsg || buildMsg(SMS_TEMPLATES[form.templateType], P, form.vaccineDay, form.sendDate);
   const chars = msg.length;
@@ -308,7 +311,7 @@ function Configure({ alerts, setAlerts, logs, setLogs, patients }) {
     try {
       const finalMsg = form.customMsg || buildMsg(SMS_TEMPLATES[form.templateType], P, form.vaccineDay, form.sendDate);
       const res = await apiClient.post('/alerts', {
-        patientId:    P._id,
+        patientId:    P.id ,
         vaccineDay:   form.vaccineDay,
         schedDate:    form.sendDate,
         schedTime:    form.sendTime,
@@ -323,7 +326,7 @@ function Configure({ alerts, setAlerts, logs, setLogs, patients }) {
         remarks:      form.remarks,
       });
       const newA = res.data.alert || {
-        _id: res.data._id, patientId: P._id, patient: P.fullName,
+        _id: res.data.id , patientId: P.id , patient: P.fullName,
         vaccineDay: form.vaccineDay, schedDate: form.sendDate,
         status: "Pending", sentAt: "—", channel: form.channel, attempts: 0,
       };
@@ -358,7 +361,7 @@ function Configure({ alerts, setAlerts, logs, setLogs, patients }) {
                 <label className="text-xs font-semibold text-slate-600 uppercase block mb-2">Select Patient</label>
                 <select value={form.patient} onChange={f("patient")} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">— Select a patient —</option>
-                  {patients.map(p => <option key={p._id} value={p._id}>{p.fullName}</option>)}
+                  {patients.map(p => <option key={p.id } value={p.id }>{p.fullName}</option>)}
                 </select>
               </div>
               <div>
@@ -619,8 +622,8 @@ function NotifLog({ logs, setLogs }) {
               {filtered.length === 0 ? (
                 <tr><td colSpan={9} className="text-center py-8 text-slate-500 text-sm">No log entries.</td></tr>
               ) : filtered.map((l, i) => (
-                <tr key={`${l._id}-${i}`} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-500">{l._id}</td>
+                <tr key={`${l.id }-${i}`} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                  <td className="px-4 py-3 font-mono text-xs text-slate-500">{l.id }</td>
                   <td className="px-4 py-3 font-mono text-xs font-semibold text-blue-600">{l.caseId}</td>
                   <td className="px-4 py-3 font-semibold text-slate-900 text-sm">{l.patient}</td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">{l.vaccineDay}</td>
@@ -652,7 +655,7 @@ function NotifLog({ logs, setLogs }) {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-xs text-slate-500 mb-4 font-mono">{view._id} · {view.sentAt}</p>
+            <p className="text-xs text-slate-500 mb-4 font-mono">{view.id } · {view.sentAt}</p>
             <div className="bg-slate-50 border-l-4 border-blue-600 rounded-r-lg p-3 font-mono text-xs text-slate-700 leading-relaxed mb-4">{view.preview}</div>
             <div className="grid grid-cols-2 gap-3 mb-4">
               {[["Patient", view.patient], ["Case ID", view.caseId], ["Vaccine Day", view.vaccineDay], ["Status",""]].map(([k, v]) => (

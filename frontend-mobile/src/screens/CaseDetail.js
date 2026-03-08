@@ -5,15 +5,14 @@ import {
 } from 'react-native';
 import {
   ChevronLeft, Clock, User, Zap, Cat, Scissors,
-  Syringe, CheckCircle, Circle,
+  Syringe, CheckCircle, Circle, AlertCircle,
 } from 'lucide-react-native';
 import apiClient from '../api/client';
 
-// ── Status Pill ───────────────────────────────────────────────────────────────
 const StatusPill = ({ status }) => {
   const map = {
     Pending:             { bg: '#fffbeb', text: '#b45309', border: '#fde68a' },
-    Ongoing:             { bg: '#eff6ff', text: '#2d4a8a', border: '#bfdbfe' },
+    Ongoing:             { bg: '#eff6ff', text: '#1565C0', border: '#bfdbfe' },
     Completed:           { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0' },
     Urgent:              { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
     Recovered:           { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0' },
@@ -34,7 +33,6 @@ const pill = StyleSheet.create({
   text: { fontSize: 12, fontWeight: '700' },
 });
 
-// ── Section Card ──────────────────────────────────────────────────────────────
 const Section = ({ icon: Icon, title, accentColor, children }) => (
   <View style={card.wrap}>
     <View style={[card.header, { backgroundColor: accentColor + '14', borderLeftColor: accentColor }]}>
@@ -51,7 +49,6 @@ const card = StyleSheet.create({
   body:   { paddingHorizontal: 16, paddingBottom: 4 },
 });
 
-// ── Info Row ──────────────────────────────────────────────────────────────────
 const InfoRow = ({ label, value, last }) => (
   <View style={[row.wrap, !last && row.border]}>
     <Text style={row.label}>{label}</Text>
@@ -65,37 +62,79 @@ const row = StyleSheet.create({
   value:  { fontSize: 13, color: '#1e293b', fontWeight: '600', flex: 1.2, textAlign: 'right' },
 });
 
-// ── Dose Row ──────────────────────────────────────────────────────────────────
-const DoseRow = ({ label, date, done, last }) => (
-  <View style={[doseS.wrap, !last && doseS.border]}>
-    {done
-      ? <CheckCircle color="#10b981" size={16} fill="#10b981" />
-      : <Circle color="#cbd5e1" size={16} />}
-    <Text style={[doseS.label, done && doseS.labelDone]}>{label}</Text>
-    <Text style={[doseS.date, done && doseS.dateDone]}>
-      {date
-        ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
-        : 'Not scheduled'}
-    </Text>
-  </View>
-);
+const DoseRow = ({ label, administered, scheduled, missed, last }) => {
+  const fmt = (d) => d
+    ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+    : null;
+
+  const isDone = !!administered;
+  const isMissed = missed && !administered;
+  const isScheduled = !!scheduled && !administered && !missed;
+
+  return (
+    <View style={[doseS.wrap, !last && doseS.border]}>
+      {isDone   && <CheckCircle color="#10b981" size={16} fill="#10b981" />}
+      {isMissed && <AlertCircle color="#ef4444" size={16} />}
+      {!isDone && !isMissed && <Circle color="#cbd5e1" size={16} />}
+
+      <View style={{ flex: 1 }}>
+        <Text style={[
+          doseS.label,
+          isDone   && doseS.labelDone,
+          isMissed && doseS.labelMissed,
+        ]}>
+          {label}
+        </Text>
+        {isMissed && <Text style={doseS.missedTag}>Missed</Text>}
+      </View>
+
+      <View style={{ alignItems: 'flex-end' }}>
+        {isDone ? (
+          <Text style={doseS.dateDone}>{fmt(administered)}</Text>
+        ) : isScheduled ? (
+          <>
+            <Text style={doseS.dateScheduled}>{fmt(scheduled)}</Text>
+            <Text style={doseS.scheduledTag}>Scheduled</Text>
+          </>
+        ) : isMissed ? (
+          <Text style={doseS.dateMissed}>{fmt(scheduled) || '—'}</Text>
+        ) : (
+          <Text style={doseS.dateEmpty}>Not scheduled</Text>
+        )}
+      </View>
+    </View>
+  );
+};
 const doseS = StyleSheet.create({
-  wrap:      { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
-  border:    { borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  label:     { flex: 1, fontSize: 13, color: '#94a3b8' },
-  labelDone: { color: '#1e293b', fontWeight: '600' },
-  date:      { fontSize: 12, color: '#94a3b8' },
-  dateDone:  { color: '#10b981', fontWeight: '700' },
+  wrap:          { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
+  border:        { borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  label:         { fontSize: 13, color: '#94a3b8' },
+  labelDone:     { color: '#1e293b', fontWeight: '600' },
+  labelMissed:   { color: '#ef4444', fontWeight: '600' },
+  missedTag:     { fontSize: 10, color: '#ef4444', marginTop: 2 },
+  dateDone:      { fontSize: 12, color: '#10b981', fontWeight: '700' },
+  dateScheduled: { fontSize: 12, color: '#3b82f6', fontWeight: '600' },
+  scheduledTag:  { fontSize: 10, color: '#3b82f6', marginTop: 1 },
+  dateMissed:    { fontSize: 12, color: '#ef4444' },
+  dateEmpty:     { fontSize: 12, color: '#cbd5e1' },
 });
 
-// ── Main Screen ───────────────────────────────────────────────────────────────
+const DOSE_KEYS = [
+  { key: 'day0',  label: 'Dose 1 (Day 0)'  },
+  { key: 'day3',  label: 'Dose 2 (Day 3)'  },
+  { key: 'day7',  label: 'Dose 3 (Day 7)'  },
+  { key: 'day14', label: 'Dose 4 (Day 14)' },
+  { key: 'day28', label: 'Dose 5 (Day 28)' },
+];
+
 export default function CaseDetail({ navigation, route }) {
   const { caseId } = route.params;
-  const [caseData, setCaseData]     = useState(null);
-  const [patientData, setPatientData] = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError]           = useState(null);
+  const [caseData,        setCaseData]        = useState(null);
+  const [patientData,     setPatientData]     = useState(null);
+  const [vaccinationData, setVaccinationData] = useState(null);
+  const [loading,         setLoading]         = useState(true);
+  const [refreshing,      setRefreshing]      = useState(false);
+  const [error,           setError]           = useState(null);
 
   const fetchData = async () => {
     try {
@@ -106,7 +145,16 @@ export default function CaseDetail({ navigation, route }) {
       ]);
       setCaseData(caseRes.data);
       const patients = patientRes.data.patients || [];
-      setPatientData(patients[0] || null);
+      const patient  = patients[0] || null;
+      setPatientData(patient);
+      if (patient?.id) {
+        try {
+          const vacRes = await apiClient.get('/vaccinations', { params: { limit: 1 } });
+          const allVax = vacRes.data.vaccinations || [];
+          const linked = allVax.find(v => v.patientRef === patient.id);
+          setVaccinationData(linked || null);
+        } catch (_) { setVaccinationData(null); }
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load case details');
     } finally {
@@ -117,23 +165,19 @@ export default function CaseDetail({ navigation, route }) {
 
   useEffect(() => { fetchData(); }, [caseId]);
   const onRefresh = () => { setRefreshing(true); fetchData(); };
+  const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : '—';
 
-  const fmt = (d) =>
-    d ? new Date(d).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : '—';
-
-  // ── Loading ──
   if (loading) return (
     <View style={styles.center}>
-      <StatusBar barStyle="light-content" backgroundColor="#2d4a8a" />
-      <ActivityIndicator size="large" color="#2d4a8a" />
+      <StatusBar barStyle="light-content" backgroundColor="#1565C0" />
+      <ActivityIndicator size="large" color="#1565C0" />
       <Text style={styles.loadingText}>Loading case details...</Text>
     </View>
   );
 
-  // ── Error ──
   if (error) return (
     <View style={styles.center}>
-      <StatusBar barStyle="light-content" backgroundColor="#2d4a8a" />
+      <StatusBar barStyle="light-content" backgroundColor="#1565C0" />
       <Text style={styles.errorText}>{error}</Text>
       <TouchableOpacity onPress={fetchData} style={styles.retryBtn}>
         <Text style={styles.retryText}>Try Again</Text>
@@ -141,15 +185,14 @@ export default function CaseDetail({ navigation, route }) {
     </View>
   );
 
-  const doses      = patientData?.doses || [];
-  const doseLabels = ['Dose 1 (Day 0)', 'Dose 2 (Day 3)', 'Dose 3 (Day 7)', 'Dose 4 (Day 14)', 'Dose 5 (Day 28)'];
-
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#2d4a8a" />
+      <StatusBar barStyle="light-content" backgroundColor="#1565C0" />
 
-      {/* ── Blue Header ── */}
+      {/* Blue Header */}
       <View style={styles.headerWrap}>
+        <View style={styles.circle1} />
+        <View style={styles.circle2} />
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <ChevronLeft color="#fff" size={22} />
@@ -160,33 +203,28 @@ export default function CaseDetail({ navigation, route }) {
           </View>
           {caseData?.status && <StatusPill status={caseData.status} />}
         </View>
-
-        {/* Submitted badge */}
         <View style={styles.submittedBadge}>
           <Clock color="rgba(255,255,255,0.6)" size={13} />
           <Text style={styles.submittedText}>Submitted: {fmt(caseData?.createdAt)}</Text>
         </View>
       </View>
 
-      {/* ── Body ── */}
       <ScrollView
         style={styles.body}
         contentContainerStyle={styles.bodyContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2d4a8a" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1565C0" />}
       >
-        {/* Personal Info */}
-        <Section icon={User} title="Personal Information" accentColor="#3b5998">
-          <InfoRow label="Full Name"  value={caseData?.fullName} />
-          <InfoRow label="Age"        value={caseData?.age?.toString()} />
-          <InfoRow label="Sex"        value={caseData?.sex} />
-          <InfoRow label="Contact"    value={caseData?.contact} />
-          <InfoRow label="Email"      value={caseData?.email} />
-          <InfoRow label="Address"    value={caseData?.address} last />
+        <Section icon={User}     title="Personal Information"   accentColor="#1565C0">
+          <InfoRow label="Full Name" value={caseData?.fullName} />
+          <InfoRow label="Age"       value={caseData?.age?.toString()} />
+          <InfoRow label="Sex"       value={caseData?.sex} />
+          <InfoRow label="Contact"   value={caseData?.contact} />
+          <InfoRow label="Email"     value={caseData?.email} />
+          <InfoRow label="Address"   value={caseData?.address} last />
         </Section>
 
-        {/* Exposure Info */}
-        <Section icon={Zap} title="Exposure Information" accentColor="#f97316">
+        <Section icon={Zap}      title="Exposure Information"   accentColor="#f97316">
           <InfoRow label="Date of Exposure" value={fmt(caseData?.dateOfExposure)} />
           <InfoRow label="Time"             value={caseData?.timeOfExposure} />
           <InfoRow label="Location"         value={caseData?.location} />
@@ -194,25 +232,21 @@ export default function CaseDetail({ navigation, route }) {
           <InfoRow label="Body Part"        value={caseData?.bodyPartAffected} last />
         </Section>
 
-        {/* Animal Info */}
-        <Section icon={Cat} title="Animal Information" accentColor="#8b5cf6">
+        <Section icon={Cat}      title="Animal Information"     accentColor="#8b5cf6">
           <InfoRow label="Animal"     value={caseData?.animalInvolved} />
           <InfoRow label="Ownership"  value={caseData?.animalStatus} />
           <InfoRow label="Vaccinated" value={caseData?.animalVaccinated} last />
         </Section>
 
-        {/* Wound Info */}
-        <Section icon={Scissors} title="Wound Information" accentColor="#ef4444">
+        <Section icon={Scissors} title="Wound Information"      accentColor="#ef4444">
           <InfoRow label="Bleeding"      value={caseData?.woundBleeding} />
           <InfoRow label="Washed"        value={caseData?.woundWashed} />
           <InfoRow label="No. of Wounds" value={caseData?.numberOfWounds?.toString()} last />
         </Section>
 
-        {/* PEP Schedule */}
-        <Section icon={Syringe} title="PEP Vaccination Schedule" accentColor="#10b981">
+        <Section icon={Syringe}  title="PEP Vaccination Schedule" accentColor="#10b981">
           {patientData ? (
             <>
-              {/* Meta row */}
               <View style={styles.pepMetaRow}>
                 <View style={styles.pepMetaBox}>
                   <Text style={styles.pepMetaLabel}>Wound Category</Text>
@@ -225,31 +259,49 @@ export default function CaseDetail({ navigation, route }) {
                 </View>
               </View>
 
-              {/* Doses */}
-              <View style={styles.doseListWrap}>
-                {doseLabels.map((label, i) => (
-                  <DoseRow
-                    key={i}
-                    label={label}
-                    date={doses[i]}
-                    done={!!doses[i]}
-                    last={i === doseLabels.length - 1}
-                  />
-                ))}
-              </View>
-
-              {/* Next Schedule */}
-              {patientData.nextSchedule && (
-                <View style={styles.nextBox}>
-                  <Clock color="#2d4a8a" size={14} />
-                  <View>
-                    <Text style={styles.nextLabel}>Next Schedule</Text>
-                    <Text style={styles.nextDate}>{fmt(patientData.nextSchedule)}</Text>
+              {vaccinationData && (
+                <View style={styles.vaccineInfoRow}>
+                  <View style={styles.vaccineInfoItem}>
+                    <Text style={styles.vaccineInfoLabel}>Vaccine Brand</Text>
+                    <Text style={styles.vaccineInfoValue}>{vaccinationData.vaccineBrand || '—'}</Text>
+                  </View>
+                  <View style={styles.vaccineInfoItem}>
+                    <Text style={styles.vaccineInfoLabel}>Injection Site</Text>
+                    <Text style={styles.vaccineInfoValue}>{vaccinationData.injectionSite || '—'}</Text>
+                  </View>
+                  <View style={styles.vaccineInfoItem}>
+                    <Text style={styles.vaccineInfoLabel}>Vax Status</Text>
+                    <StatusPill status={vaccinationData.status} />
                   </View>
                 </View>
               )}
 
-              {/* Outcome */}
+              <View style={styles.doseListWrap}>
+                {DOSE_KEYS.map(({ key, label }, i) => (
+                  <DoseRow
+                    key={key}
+                    label={label}
+                    administered={vaccinationData?.[key]}
+                    scheduled={vaccinationData?.[`${key}Scheduled`]}
+                    missed={vaccinationData?.[`${key}Missed`]}
+                    last={i === DOSE_KEYS.length - 1}
+                  />
+                ))}
+              </View>
+
+              {vaccinationData?.rigGiven && (
+                <View style={styles.rigBox}>
+                  <Syringe color="#7c3aed" size={14} />
+                  <View>
+                    <Text style={styles.rigLabel}>RIG Administered</Text>
+                    <Text style={styles.rigValue}>
+                      {vaccinationData.rigType || '—'}
+                      {vaccinationData.rigDosage ? `  ·  ${vaccinationData.rigDosage} IU` : ''}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               {patientData.caseOutcome && (
                 <View style={styles.outcomeRow}>
                   <Text style={styles.outcomeLabel}>Case Outcome</Text>
@@ -277,18 +329,25 @@ export default function CaseDetail({ navigation, route }) {
 const styles = StyleSheet.create({
   root:   { flex: 1, backgroundColor: '#f1f5f9' },
   center: { flex: 1, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', padding: 24 },
-
   loadingText: { fontSize: 13, color: '#64748b', marginTop: 12 },
   errorText:   { fontSize: 14, color: '#ef4444', textAlign: 'center', marginBottom: 14 },
-  retryBtn:    { backgroundColor: '#2d4a8a', paddingHorizontal: 24, paddingVertical: 11, borderRadius: 12 },
+  retryBtn:    { backgroundColor: '#1565C0', paddingHorizontal: 24, paddingVertical: 11, borderRadius: 12 },
   retryText:   { color: '#fff', fontSize: 14, fontWeight: '700' },
 
-  // Header
   headerWrap: {
-    backgroundColor: '#2d4a8a',
+    backgroundColor: '#1565C0',
     paddingHorizontal: 16, paddingTop: 52, paddingBottom: 18,
+    overflow: 'hidden',
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  circle1: {
+    position: 'absolute', width: 220, height: 220, borderRadius: 110,
+    backgroundColor: 'rgba(0,188,212,0.22)', top: -80, right: -60,
+  },
+  circle2: {
+    position: 'absolute', width: 140, height: 140, borderRadius: 70,
+    backgroundColor: 'rgba(0,188,212,0.15)', top: 10, right: 60,
+  },
+  headerRow:  { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   backBtn: {
     width: 38, height: 38, borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.18)',
@@ -296,7 +355,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: '700', color: '#fff' },
   headerSub:   { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 1 },
-
   submittedBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     backgroundColor: 'rgba(255,255,255,0.12)',
@@ -304,30 +362,32 @@ const styles = StyleSheet.create({
   },
   submittedText: { fontSize: 12, color: 'rgba(255,255,255,0.75)' },
 
-  // Body
   body:        { flex: 1 },
   bodyContent: { paddingHorizontal: 14, paddingTop: 16 },
 
-  // PEP meta
-  pepMetaRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#f8fafc', borderRadius: 12,
-    marginBottom: 14, overflow: 'hidden',
-  },
+  pepMetaRow:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 12, marginBottom: 14, overflow: 'hidden' },
   pepMetaBox:     { flex: 1, padding: 14 },
   pepMetaDivider: { width: 1, height: 48, backgroundColor: '#e2e8f0' },
   pepMetaLabel:   { fontSize: 11, color: '#94a3b8', marginBottom: 6 },
   pepMetaValue:   { fontSize: 14, fontWeight: '700', color: '#1e293b' },
 
+  vaccineInfoRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+    backgroundColor: '#f8fafc', borderRadius: 12, padding: 12, marginBottom: 14,
+  },
+  vaccineInfoItem:  { flex: 1, minWidth: 90 },
+  vaccineInfoLabel: { fontSize: 10, color: '#94a3b8', marginBottom: 4 },
+  vaccineInfoValue: { fontSize: 13, fontWeight: '600', color: '#1e293b' },
+
   doseListWrap: { marginBottom: 8 },
 
-  nextBox: {
+  rigBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#eff6ff', borderRadius: 12,
-    padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#bfdbfe',
+    backgroundColor: '#faf5ff', borderRadius: 12, padding: 14, marginBottom: 12,
+    borderWidth: 1, borderColor: '#e9d5ff',
   },
-  nextLabel: { fontSize: 11, color: '#64748b', marginBottom: 2 },
-  nextDate:  { fontSize: 14, fontWeight: '700', color: '#2d4a8a' },
+  rigLabel: { fontSize: 11, color: '#7c3aed', marginBottom: 2 },
+  rigValue: { fontSize: 13, fontWeight: '700', color: '#6d28d9' },
 
   outcomeRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

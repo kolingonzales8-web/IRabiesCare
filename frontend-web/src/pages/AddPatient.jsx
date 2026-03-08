@@ -108,7 +108,7 @@ export default function AddPatient() {
                 className="w-full appearance-none px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-white">
                 <option value="">— Select a case —</option>
                 {cases.map(c => (
-                  <option key={c._id} value={c._id}>
+                  <option key={c.id } value={c.id }>
                     #{c.caseId} — {c.fullName}
                   </option>
                 ))}
