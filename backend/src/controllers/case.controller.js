@@ -1,35 +1,28 @@
-const { Op, fn, col, literal } = require('sequelize');
 const Case        = require('../models/case.model');
-const logActivity = require('../utils/logActivity'); // ✅ added
+const logActivity = require('../utils/logActivity');
 
 // Staff/Admin: Get cases based on role
 exports.getAllCases = async (req, res) => {
   try {
     const { status, search, page = 1, limit = 10, unassigned } = req.query;
 
-    const where = req.user.role === 'admin'
-      ? {}
-      : { assignedTo: req.user.id };
+    const where = req.user.role === 'admin' ? {} : { assignedTo: req.user.id };
 
-    if (unassigned === 'true') {
-      where.assignedTo = null;
-    }
-
+    if (unassigned === 'true') where.assignedTo = null;
     if (status && status !== 'All') where.status = status;
+
     if (search) {
-      where[Op.or] = [
-        { fullName: { [Op.like]: `%${search}%` } },
-        { caseId:   { [Op.like]: `%${search}%` } },
+      where.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { caseId:   { $regex: search, $options: 'i' } },
       ];
     }
 
-    const total = await Case.count({ where });
-    const cases = await Case.findAll({
-      where,
-      order: [['createdAt', 'DESC']],
-      limit:  Number(limit),
-      offset: (page - 1) * limit,
-    });
+    const total = await Case.countDocuments(where);
+    const cases = await Case.find(where)
+      .sort({ createdAt: -1 })
+      .limit(Number(limit))
+      .skip((page - 1) * limit);
 
     res.status(200).json({
       cases,
@@ -45,10 +38,7 @@ exports.getAllCases = async (req, res) => {
 // Mobile: Get own cases (no pagination)
 exports.getMyCases = async (req, res) => {
   try {
-    const cases = await Case.findAll({
-      where: { patientUserId: req.user.id },
-      order: [['createdAt', 'DESC']],
-    });
+    const cases = await Case.find({ patientUserId: req.user.id }).sort({ createdAt: -1 });
     res.status(200).json(cases);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -58,7 +48,7 @@ exports.getMyCases = async (req, res) => {
 // Get single case
 exports.getCaseById = async (req, res) => {
   try {
-    const caseItem = await Case.findByPk(req.params.id);
+    const caseItem = await Case.findById(req.params.id);
     if (!caseItem) return res.status(404).json({ message: 'Case not found' });
     res.status(200).json(caseItem);
   } catch (error) {
@@ -69,21 +59,16 @@ exports.getCaseById = async (req, res) => {
 // Create case — supports optional walk-in mobile account creation
 exports.createCase = async (req, res) => {
   try {
-    const {
-      createAccount,
-      accountEmail,
-      accountPassword,
-      ...caseFields
-    } = req.body;
+    const { createAccount, accountEmail, accountPassword, ...caseFields } = req.body;
 
     const sanitized = {
       ...caseFields,
       email:            caseFields.email            || null,
-      bodyPartAffected: caseFields.bodyPartAffected  || null,
-      animalVaccinated: caseFields.animalVaccinated  || null,
-      woundBleeding:    caseFields.woundBleeding     || null,
-      woundWashed:      caseFields.woundWashed       || null,
-      assignedTo:       caseFields.assignedTo        ? Number(caseFields.assignedTo) : null,
+      bodyPartAffected: caseFields.bodyPartAffected || null,
+      animalVaccinated: caseFields.animalVaccinated || null,
+      woundBleeding:    caseFields.woundBleeding    || null,
+      woundWashed:      caseFields.woundWashed      || null,
+      assignedTo:       caseFields.assignedTo       || null,
     };
 
     const newCase = await Case.create({
@@ -92,12 +77,11 @@ exports.createCase = async (req, res) => {
       assignedTo: sanitized.assignedTo || (req.user.role === 'staff' ? req.user.id : null),
     });
 
-    // ✅ Log case creation
     await logActivity({
       action: 'CREATE', module: 'Case',
       description: `New case registered for ${caseFields.fullName}`,
       user: req.user,
-      targetId:   newCase.id,
+      targetId: newCase._id,
       targetName: `Case #${newCase.caseId} - ${caseFields.fullName}`,
       req,
     });
@@ -105,116 +89,91 @@ exports.createCase = async (req, res) => {
     if (createAccount && accountEmail && accountPassword) {
       const User = require('../models/user.model');
 
-      const existing = await User.findOne({ where: { email: accountEmail } });
+      const existing = await User.findOne({ email: accountEmail });
       if (existing) {
         return res.status(201).json({
-          message:        'Case registered successfully, but that email already has an account. Please use a different email.',
-          case:           newCase,
-          accountCreated: false,
+          message: 'Case registered successfully, but that email already has an account. Please use a different email.',
+          case: newCase, accountCreated: false,
         });
       }
 
       const newUser = await User.create({
-        name:     caseFields.fullName,
-        email:    accountEmail,
-        password: accountPassword,
-        role:     'user',
+        name: caseFields.fullName, email: accountEmail, password: accountPassword, role: 'user',
       });
 
-      await newCase.update({ patientUserId: newUser.id });
+      newCase.patientUserId = newUser._id;
+      await newCase.save();
 
-      // ✅ Log mobile account creation
       await logActivity({
         action: 'CREATE', module: 'User',
         description: `Mobile account created for walk-in patient: ${caseFields.fullName}`,
-        user: req.user,
-        targetId:   newUser.id,
-        targetName: caseFields.fullName,
-        req,
+        user: req.user, targetId: newUser._id, targetName: caseFields.fullName, req,
       });
 
       return res.status(201).json({
-        message:        'Case registered and mobile account created successfully',
-        case:           newCase,
-        accountCreated: true,
+        message: 'Case registered and mobile account created successfully',
+        case: newCase, accountCreated: true,
       });
     }
 
-    res.status(201).json({
-      message:        'Case registered successfully',
-      case:           newCase,
-      accountCreated: false,
-    });
-
+    res.status(201).json({ message: 'Case registered successfully', case: newCase, accountCreated: false });
   } catch (error) {
-    console.error('createCase error:', error.errors?.[0]?.message || error.message);
-    res.status(500).json({ message: error.errors?.[0]?.message || error.message });
+    console.error('createCase error:', error.message);
+    res.status(500).json({ message: error.message });
   }
 };
 
 // Update case
 exports.updateCase = async (req, res) => {
   try {
-    const caseItem = await Case.findByPk(req.params.id);
+    const caseItem = await Case.findById(req.params.id);
     if (!caseItem) return res.status(404).json({ message: 'Case not found' });
 
     const oldStatus   = caseItem.status;
-    const oldAssigned = caseItem.assignedTo;
+    const oldAssigned = caseItem.assignedTo?.toString();
 
-    // ✅ Sanitize empty strings to null for ENUM fields
     const sanitized = {
       ...req.body,
       email:            req.body.email            || null,
-      bodyPartAffected: req.body.bodyPartAffected  || null,
-      animalVaccinated: req.body.animalVaccinated  || null,
-      woundBleeding:    req.body.woundBleeding     || null,
-      woundWashed:      req.body.woundWashed       || null,
-      numberOfWounds:   req.body.numberOfWounds !== '' ? Number(req.body.numberOfWounds) : null, 
-      assignedTo:       req.body.assignedTo        ? Number(req.body.assignedTo) : null,
+      bodyPartAffected: req.body.bodyPartAffected || null,
+      animalVaccinated: req.body.animalVaccinated || null,
+      woundBleeding:    req.body.woundBleeding    || null,
+      woundWashed:      req.body.woundWashed      || null,
+      numberOfWounds:   req.body.numberOfWounds !== '' ? Number(req.body.numberOfWounds) : null,
+      assignedTo:       req.body.assignedTo       || null,
     };
 
-    await caseItem.update(sanitized); // ✅ sanitized instead of req.body
+    Object.assign(caseItem, sanitized);
+    await caseItem.save();
 
-    // ✅ Log status change
     if (sanitized.status && sanitized.status !== oldStatus) {
       await logActivity({
         action: 'STATUS_CHANGE', module: 'Case',
         description: `Case #${caseItem.caseId} status changed from ${oldStatus} to ${sanitized.status}`,
-        user: req.user,
-        targetId:   caseItem.id,
-        targetName: `Case #${caseItem.caseId} - ${caseItem.fullName}`,
-        req,
+        user: req.user, targetId: caseItem._id,
+        targetName: `Case #${caseItem.caseId} - ${caseItem.fullName}`, req,
       });
     }
 
-    // ✅ Log assignment change
-    if (sanitized.assignedTo !== undefined && sanitized.assignedTo !== oldAssigned) {
+    if (sanitized.assignedTo && sanitized.assignedTo !== oldAssigned) {
       await logActivity({
         action: 'ASSIGN', module: 'Case',
-        description: `Case #${caseItem.caseId} reassigned to staff ID ${sanitized.assignedTo}`,
-        user: req.user,
-        targetId:   caseItem.id,
-        targetName: `Case #${caseItem.caseId} - ${caseItem.fullName}`,
-        req,
+        description: `Case #${caseItem.caseId} reassigned`,
+        user: req.user, targetId: caseItem._id,
+        targetName: `Case #${caseItem.caseId} - ${caseItem.fullName}`, req,
       });
     }
 
-    // ✅ Log general update
-    if (!sanitized.status && sanitized.assignedTo === undefined) {
+    if (!sanitized.status && !sanitized.assignedTo) {
       await logActivity({
         action: 'UPDATE', module: 'Case',
         description: `Case #${caseItem.caseId} details updated`,
-        user: req.user,
-        targetId:   caseItem.id,
-        targetName: `Case #${caseItem.caseId} - ${caseItem.fullName}`,
-        req,
+        user: req.user, targetId: caseItem._id,
+        targetName: `Case #${caseItem.caseId} - ${caseItem.fullName}`, req,
       });
     }
 
-    res.status(200).json({
-      message: 'Case updated successfully',
-      case: caseItem,
-    });
+    res.status(200).json({ message: 'Case updated successfully', case: caseItem });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -223,20 +182,17 @@ exports.updateCase = async (req, res) => {
 // Delete case
 exports.deleteCase = async (req, res) => {
   try {
-    const caseItem = await Case.findByPk(req.params.id);
+    const caseItem = await Case.findById(req.params.id);
     if (!caseItem) return res.status(404).json({ message: 'Case not found' });
 
-    // ✅ Log before destroy so we still have the data
     await logActivity({
       action: 'DELETE', module: 'Case',
       description: `Case #${caseItem.caseId} deleted (${caseItem.fullName})`,
-      user: req.user,
-      targetId:   caseItem.id,
-      targetName: `Case #${caseItem.caseId} - ${caseItem.fullName}`,
-      req,
+      user: req.user, targetId: caseItem._id,
+      targetName: `Case #${caseItem.caseId} - ${caseItem.fullName}`, req,
     });
 
-    await caseItem.destroy();
+    await caseItem.deleteOne();
     res.status(200).json({ message: 'Case deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -247,25 +203,21 @@ exports.deleteCase = async (req, res) => {
 exports.getCaseStats = async (req, res) => {
   try {
     const Patient = require('../models/patient.model');
-
     const caseWhere = req.user.role === 'admin' ? {} : { assignedTo: req.user.id };
 
     const [total, ongoing, completed, pending, urgent, categoryI, categoryII, categoryIII] =
       await Promise.all([
-        Case.count({ where: caseWhere }),
-        Case.count({ where: { ...caseWhere, status: 'Ongoing'   } }),
-        Case.count({ where: { ...caseWhere, status: 'Completed' } }),
-        Case.count({ where: { ...caseWhere, status: 'Pending'   } }),
-        Case.count({ where: { ...caseWhere, status: 'Urgent'    } }),
-        Patient.count({ where: { woundCategory: 'Category I'   } }),
-        Patient.count({ where: { woundCategory: 'Category II'  } }),
-        Patient.count({ where: { woundCategory: 'Category III' } }),
+        Case.countDocuments(caseWhere),
+        Case.countDocuments({ ...caseWhere, status: 'Ongoing'   }),
+        Case.countDocuments({ ...caseWhere, status: 'Completed' }),
+        Case.countDocuments({ ...caseWhere, status: 'Pending'   }),
+        Case.countDocuments({ ...caseWhere, status: 'Urgent'    }),
+        Patient.countDocuments({ woundCategory: 'Category I'   }),
+        Patient.countDocuments({ woundCategory: 'Category II'  }),
+        Patient.countDocuments({ woundCategory: 'Category III' }),
       ]);
 
-    res.status(200).json({
-      total, ongoing, completed, pending, urgent,
-      categoryI, categoryII, categoryIII,
-    });
+    res.status(200).json({ total, ongoing, completed, pending, urgent, categoryI, categoryII, categoryIII });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -277,65 +229,51 @@ exports.getCaseTrend = async (req, res) => {
     const Vaccination = require('../models/vaccination.model');
     const { period = 'monthly' } = req.query;
 
-    const formatMap = {
-      daily:   '%a',
-      monthly: '%b',
-      yearly:  '%Y',
+    const groupFormat = {
+      daily:   { $dayOfWeek: '$createdAt' },
+      monthly: { $month: '$createdAt' },
+      yearly:  { $year: '$createdAt' },
     };
-    const fmt = formatMap[period] || '%b';
+
+    const nameFormat = {
+      daily:   ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+      monthly: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+    };
 
     const caseWhere = req.user.role === 'admin' ? {} : { assignedTo: req.user.id };
 
     const [caseCounts, vaccRows] = await Promise.all([
-      Case.findAll({
-        attributes: [
-          [fn('DATE_FORMAT', col('createdAt'), fmt), 'name'],
-          [fn('COUNT', col('id')), 'cases'],
-          [fn('MIN', col('createdAt')), 'sortKey'],
-        ],
-        where: caseWhere,
-        group: [fn('DATE_FORMAT', col('createdAt'), fmt)],
-        order: [[fn('MIN', col('createdAt')), 'ASC']],
-        raw: true,
-      }),
-
-      Vaccination.findAll({
-        attributes: [
-          [fn('DATE_FORMAT', col('createdAt'), fmt), 'name'],
-          [fn('COUNT', col('id')), 'vaccinated'],
-          [fn('SUM', literal("CASE WHEN status = 'Completed' THEN 1 ELSE 0 END")), 'completed'],
-          [fn('MIN', col('createdAt')), 'sortKey'],
-        ],
-        group: [fn('DATE_FORMAT', col('createdAt'), fmt)],
-        order: [[fn('MIN', col('createdAt')), 'ASC']],
-        raw: true,
-      }),
+      Case.aggregate([
+        { $match: caseWhere },
+        { $group: { _id: groupFormat[period] || { $month: '$createdAt' }, cases: { $sum: 1 }, sortKey: { $min: '$createdAt' } } },
+        { $sort: { sortKey: 1 } },
+      ]),
+      Vaccination.aggregate([
+        { $group: {
+          _id: groupFormat[period] || { $month: '$createdAt' },
+          vaccinated: { $sum: 1 },
+          completed:  { $sum: { $cond: [{ $eq: ['$status', 'Completed'] }, 1, 0] } },
+          sortKey: { $min: '$createdAt' },
+        }},
+        { $sort: { sortKey: 1 } },
+      ]),
     ]);
 
+    const months = nameFormat[period] || null;
     const map = {};
 
     caseCounts.forEach(r => {
-      map[r.name] = {
-        name:       r.name,
-        sortKey:    r.sortKey,
-        cases:      Number(r.cases) || 0,
-        vaccinated: 0,
-        completed:  0,
-      };
+      const name = months ? (months[r._id - 1] || String(r._id)) : String(r._id);
+      map[name] = { name, sortKey: r.sortKey, cases: r.cases, vaccinated: 0, completed: 0 };
     });
 
     vaccRows.forEach(r => {
-      if (map[r.name]) {
-        map[r.name].vaccinated = Number(r.vaccinated) || 0;
-        map[r.name].completed  = Number(r.completed)  || 0;
+      const name = months ? (months[r._id - 1] || String(r._id)) : String(r._id);
+      if (map[name]) {
+        map[name].vaccinated = r.vaccinated;
+        map[name].completed  = r.completed;
       } else {
-        map[r.name] = {
-          name:       r.name,
-          sortKey:    r.sortKey,
-          cases:      0,
-          vaccinated: Number(r.vaccinated) || 0,
-          completed:  Number(r.completed)  || 0,
-        };
+        map[name] = { name, sortKey: r.sortKey, cases: 0, vaccinated: r.vaccinated, completed: r.completed };
       }
     });
 

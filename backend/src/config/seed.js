@@ -1,34 +1,34 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
-const { sequelize } = require('../config/db');
+// ✅ Verify it's loaded
+console.log('MONGODB_URI:', process.env.MONGODB_URI);
+
+const mongoose = require('mongoose');
 const User = require('../models/user.model');
 
 const seedAdmin = async () => {
   try {
-    await sequelize.authenticate();
-    console.log('MySQL connected');
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('MongoDB connected');
 
-    // Sync the User table if it doesn't exist yet
-    await sequelize.sync({ alter: true });
-
-    // Delete existing admin to start fresh
-    await User.destroy({ where: { email: 'admin@gmail.com' } });
+    await User.deleteOne({ email: 'admin@gmail.com' });
     console.log('Cleared existing admin');
 
-    // Create fresh admin
-    await User.create({
+    const admin = await User.create({
       name: 'Admin',
       email: 'admin@gmail.com',
       password: 'admin123456',
+      role: 'admin',
     });
 
     console.log('✅ Admin created successfully!');
-    console.log('Email: admin@gmail.com');
+    console.log('ID:', admin._id);
+    console.log('Email:', admin.email);
     console.log('Password: admin123456');
     process.exit(0);
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error('❌ Error:', error.message);
     process.exit(1);
   }
 };

@@ -1,33 +1,29 @@
-require('dotenv').config(); // ✅ moved to very top
+require('dotenv').config();
 
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const bodyParser = require('body-parser');
+const express    = require('express');
+const cors       = require('cors');
+const helmet     = require('helmet');
+const morgan     = require('morgan');
 const { connectDB } = require('./src/config/db');
 
 const app = express();
 
-// Connect to MySQL
+// Connect to MongoDB
 connectDB();
 
 // Middlewares
 app.use(helmet());
 
-// CORS - allow multiple origins
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
-  'http://localhost:8081',  // Expo web
+  'http://localhost:8081',
   ...(process.env.ALLOWED_ORIGINS?.split(',') || []),
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman)
     if (!origin) return callback(null, true);
-    
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -40,16 +36,15 @@ app.use(cors({
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(bodyParser.json());
 
 // Routes
-app.use('/api/auth', require('./src/routes/auth.routes'));
-app.use('/api/users', require('./src/routes/user.routes'));
-app.use('/api/cases', require('./src/routes/case.routes'));
-app.use('/api/patients', require('./src/routes/patient.routes'));
+app.use('/api/auth',         require('./src/routes/auth.routes'));
+app.use('/api/users',        require('./src/routes/user.routes'));
+app.use('/api/cases',        require('./src/routes/case.routes'));
+app.use('/api/patients',     require('./src/routes/patient.routes'));
 app.use('/api/vaccinations', require('./src/routes/vaccination.routes'));
-app.use('/api/animals', require('./src/routes/animal.routes'));
-app.use('/api/activity', require('./src/routes/activityLog.routes'));
+app.use('/api/animals',      require('./src/routes/animal.routes'));
+app.use('/api/activity',     require('./src/routes/activityLog.routes'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));

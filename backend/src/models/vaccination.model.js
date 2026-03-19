@@ -1,70 +1,55 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db');
-const Patient = require('./patient.model');
-const User = require('./user.model');
+const mongoose = require('mongoose');
 
-const Vaccination = sequelize.define('Vaccination', {
-  id: { 
-    type: DataTypes.INTEGER, 
-    autoIncrement: true, 
-    primaryKey: true 
-  },
-  patientId: { 
-    type: DataTypes.INTEGER, 
-    allowNull: false,
-    references: { model: Patient, key: 'id' }
-  },
-  createdBy: { 
-    type: DataTypes.INTEGER, 
-    allowNull: false,
-    references: { model: User, key: 'id' }
-  },
+const vaccinationSchema = new mongoose.Schema({
+  patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User',    required: true },
 
-  // A. Vaccine Details
-  vaccineBrand:  { type: DataTypes.STRING, allowNull: false },
-  injectionSite: { type: DataTypes.ENUM('Left Arm', 'Right Arm'), allowNull: false },
+  // Vaccine Details
+  vaccineBrand:  { type: String, required: true },
+  injectionSite: { type: String, enum: ['Left Arm', 'Right Arm'], required: true },
 
-  // B. WHO PEP Dose Schedule — flattened from nested object
-  // Administered dates
-  day0:  { type: DataTypes.DATE, defaultValue: null },
-  day3:  { type: DataTypes.DATE, defaultValue: null },
-  day7:  { type: DataTypes.DATE, defaultValue: null },
-  day14: { type: DataTypes.DATE, defaultValue: null },
-  day28: { type: DataTypes.DATE, defaultValue: null },
+  // WHO PEP Dose Schedule — administered dates
+  day0:  { type: Date, default: null },
+  day3:  { type: Date, default: null },
+  day7:  { type: Date, default: null },
+  day14: { type: Date, default: null },
+  day28: { type: Date, default: null },
 
   // Scheduled dates
-  day0Scheduled:  { type: DataTypes.DATE, defaultValue: null },
-  day3Scheduled:  { type: DataTypes.DATE, defaultValue: null },
-  day7Scheduled:  { type: DataTypes.DATE, defaultValue: null },
-  day14Scheduled: { type: DataTypes.DATE, defaultValue: null },
-  day28Scheduled: { type: DataTypes.DATE, defaultValue: null },
+  day0Scheduled:  { type: Date, default: null },
+  day3Scheduled:  { type: Date, default: null },
+  day7Scheduled:  { type: Date, default: null },
+  day14Scheduled: { type: Date, default: null },
+  day28Scheduled: { type: Date, default: null },
 
   // Missed flags
-  day0Missed:  { type: DataTypes.BOOLEAN, defaultValue: false },
-  day3Missed:  { type: DataTypes.BOOLEAN, defaultValue: false },
-  day7Missed:  { type: DataTypes.BOOLEAN, defaultValue: false },
-  day14Missed: { type: DataTypes.BOOLEAN, defaultValue: false },
-  day28Missed: { type: DataTypes.BOOLEAN, defaultValue: false },
+  day0Missed:  { type: Boolean, default: false },
+  day3Missed:  { type: Boolean, default: false },
+  day7Missed:  { type: Boolean, default: false },
+  day14Missed: { type: Boolean, default: false },
+  day28Missed: { type: Boolean, default: false },
 
-  // C. RIG Administration
-  rigGiven:            { type: DataTypes.BOOLEAN, defaultValue: false },
-  rigType:             { type: DataTypes.ENUM('HRIG', 'ERIG'), defaultValue: null },
-  rigDateAdministered: { type: DataTypes.DATE,    defaultValue: null },
-  rigDosage:           { type: DataTypes.FLOAT,   defaultValue: null },
+  // RIG Administration
+  rigGiven:            { type: Boolean, default: false },
+  rigType:             { type: String,  enum: ['HRIG', 'ERIG'], default: null },
+  rigDateAdministered: { type: Date,    default: null },
+  rigDosage:           { type: Number,  default: null },
 
-  // D. Vaccine Inventory
-  manufacturer:     { type: DataTypes.STRING, defaultValue: null },
-  vaccineStockUsed: { type: DataTypes.FLOAT,  defaultValue: null },
+  // Vaccine Inventory
+  manufacturer:     { type: String, default: null },
+  vaccineStockUsed: { type: Number, default: null },
 
   // Status
-  status: { 
-    type: DataTypes.ENUM('Ongoing', 'Completed'), 
-    defaultValue: 'Ongoing' 
+  status: { type: String, enum: ['Ongoing', 'Completed'], default: 'Ongoing' },
+}, {
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform(doc, ret) {
+      ret.id = ret._id;
+      delete ret.__v;
+    },
   },
+});
 
-}, { timestamps: true });
-
-Vaccination.belongsTo(Patient, { foreignKey: 'patientId', as: 'linkedPatient' });
-Vaccination.belongsTo(User,    { foreignKey: 'createdBy', as: 'creator' });
-
-module.exports = Vaccination;
+module.exports = mongoose.model('Vaccination', vaccinationSchema);

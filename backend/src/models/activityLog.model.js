@@ -1,65 +1,27 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db');
+const mongoose = require('mongoose');
 
-const ActivityLog = sequelize.define('ActivityLog', {
-  id: {
-    type: DataTypes.INTEGER,
-    autoIncrement: true,
-    primaryKey: true,
-  },
+const activityLogSchema = new mongoose.Schema({
+  action:      { type: String, required: true },
+  module:      { type: String, required: true },
+  description: { type: String, required: true },
 
-  // ✅ STRING instead of ENUM — avoids MySQL "too many keys" error
-  action: {
-    type: DataTypes.STRING(50),
-    allowNull: false,
-  },
+  performedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  performedByName: { type: String, default: 'System' },
+  performedByRole: { type: String, default: 'system' },
 
-  module: {
-    type: DataTypes.STRING(50),
-    allowNull: false,
-  },
-
-  description: {
-    type: DataTypes.STRING(500),
-    allowNull: false,
-  },
-
-  performedBy: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-  },
-
-  performedByName: {
-    type: DataTypes.STRING(100),
-    allowNull: false,
-    defaultValue: 'System',
-  },
-
-  performedByRole: {
-    type: DataTypes.STRING(50),
-    allowNull: false,
-    defaultValue: 'system',
-  },
-
-  targetId: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-  },
-
-  targetName: {
-    type: DataTypes.STRING(200),
-    allowNull: true,
-  },
-
-  ipAddress: {
-    type: DataTypes.STRING(100),
-    allowNull: true,
-  },
-
+  targetId:   { type: mongoose.Schema.Types.ObjectId, default: null },
+  targetName: { type: String, default: null },
+  ipAddress:  { type: String, default: null },
 }, {
   timestamps: true,
-  updatedAt: false,  // logs are immutable
-  indexes:   [],     // ✅ disable auto-indexes to stay under MySQL's 64-key limit
+  updatedAt: false,
+  toJSON: {
+    virtuals: true,
+    transform(doc, ret) {
+      ret.id = ret._id;
+      delete ret.__v;
+    },
+  },
 });
 
-module.exports = ActivityLog;
+module.exports = mongoose.model('ActivityLog', activityLogSchema);

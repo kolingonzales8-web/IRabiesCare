@@ -8,7 +8,7 @@ const ActivityLog = require('../models/activityLog.model');
  * @param {'Case'|'Patient'|'Vaccination'|'Animal'|'User'|'Auth'} params.module
  * @param {string} params.description - Human readable description
  * @param {Object} [params.user] - req.user object
- * @param {number} [params.targetId] - ID of the affected record
+ * @param {string} [params.targetId] - ID of the affected record
  * @param {string} [params.targetName] - Name/label of the affected record
  * @param {Object} [params.req] - Express request (for IP)
  */
@@ -30,7 +30,7 @@ async function logActivity({
       action,
       module,
       description,
-      performedBy:   user?.id   || null,
+      performedBy:     user?._id  || null,   // ← changed: id → _id
       performedByName: user?.name || 'System',
       performedByRole: user?.role || 'system',
       targetId,

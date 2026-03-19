@@ -1,45 +1,24 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db');
-const Case = require('./case.model');
+const mongoose = require('mongoose');
 
-const Patient = sequelize.define('Patient', {
-  id: { 
-    type: DataTypes.INTEGER, 
-    autoIncrement: true, 
-    primaryKey: true 
-  },
-  caseId: { 
-    type: DataTypes.INTEGER, 
-    allowNull: false,
-    references: { model: Case, key: 'id' }
-  },
-  fullName: { 
-    type: DataTypes.STRING, 
-    allowNull: false 
-  },
-  woundCategory: { 
-    type: DataTypes.ENUM('Category I', 'Category II', 'Category III'), 
-    defaultValue: 'Category I' 
-  },
-  patientStatus: { 
-    type: DataTypes.ENUM('Pending', 'Ongoing', 'Completed'), 
-    defaultValue: 'Pending' 
-  },
-  // doses array stored as JSON (MySQL supports JSON type)
-  doses: { 
-    type: DataTypes.JSON, 
-    defaultValue: [] 
-  },
-  nextSchedule: { 
-    type: DataTypes.DATE, 
-    defaultValue: null 
-  },
-  caseOutcome: { 
-    type: DataTypes.ENUM('Ongoing', 'Recovered', 'Deceased', 'Lost to Follow-up'), 
-    defaultValue: 'Ongoing' 
-  },
-}, { timestamps: true });
+const patientSchema = new mongoose.Schema({
+  caseId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Case', required: true },
+  fullName: { type: String, required: true },
 
-Patient.belongsTo(Case, { foreignKey: 'caseId', as: 'linkedCase' });
+  woundCategory: { type: String, enum: ['Category I', 'Category II', 'Category III'], default: 'Category I' },
+  patientStatus: { type: String, enum: ['Pending', 'Ongoing', 'Completed'],           default: 'Pending' },
+  caseOutcome:   { type: String, enum: ['Ongoing', 'Recovered', 'Deceased', 'Lost to Follow-up'], default: 'Ongoing' },
 
-module.exports = Patient;
+  doses:        { type: Array,  default: [] },
+  nextSchedule: { type: Date,   default: null },
+}, {
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform(doc, ret) {
+      ret.id = ret._id;
+      delete ret.__v;
+    },
+  },
+});
+
+module.exports = mongoose.model('Patient', patientSchema);
