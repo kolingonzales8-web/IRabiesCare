@@ -2,6 +2,7 @@ const express     = require('express');
 const router      = express.Router();
 const User        = require('../models/user.model');
 const { protect } = require('../middlewares/auth.middleware');
+const { logout }  = require('../controllers/auth.controller');
 
 // GET profile
 router.get('/profile', protect, (req, res) => {

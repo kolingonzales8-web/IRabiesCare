@@ -14,7 +14,13 @@ exports.register = async (req, res) => {
     if (existingUser)
       return res.status(400).json({ message: 'Email already in use' });
 
-    const user  = await User.create({ name, email, password });
+    const user = await User.create({ name, email, password });
+
+    // Mark online immediately after registration
+    user.isOnline = true;
+    user.lastSeen = new Date();
+    await user.save();
+
     const token = generateToken(user._id);
 
     await logActivity({
@@ -27,7 +33,7 @@ exports.register = async (req, res) => {
     res.status(201).json({
       message: 'User registered successfully',
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, isOnline: user.isOnline, lastSeen: user.lastSeen },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -50,6 +56,11 @@ exports.login = async (req, res) => {
 
     if (!isMatch) return res.status(401).json({ message: 'Wrong password' });
 
+    // Mark online
+    user.isOnline = true;
+    user.lastSeen = new Date();
+    await user.save();
+
     const token = generateToken(user._id);
 
     await logActivity({
@@ -62,10 +73,32 @@ exports.login = async (req, res) => {
     res.status(200).json({
       message: 'Login successful',
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, isOnline: user.isOnline, lastSeen: user.lastSeen },
     });
   } catch (error) {
     console.error('Login error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Logout
+exports.logout = async (req, res) => {
+  try {
+    if (req.user) {
+      await User.findByIdAndUpdate(req.user.id, {
+        isOnline: false,
+        lastSeen: new Date(),
+      });
+
+      await logActivity({
+        action: 'LOGOUT', module: 'Auth',
+        description: `${req.user.name} logged out`,
+        user: { id: req.user._id, name: req.user.name, role: req.user.role },
+        targetId: req.user._id, targetName: req.user.name, req,
+      });
+    }
+    res.json({ message: 'Logged out successfully.' });
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
