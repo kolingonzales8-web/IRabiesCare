@@ -24,14 +24,12 @@ exports.chat = async (req, res) => {
 
     if (!message) return res.status(400).json({ message: 'Message is required.' });
 
-    // Build conversation history for Gemini
+    // Build conversation contents
     const contents = [
-      // Include previous messages
       ...history.map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model',
         parts: [{ text: msg.text }],
       })),
-      // Add current message
       {
         role: 'user',
         parts: [{ text: message }],
@@ -39,7 +37,7 @@ exports.chat = async (req, res) => {
     ];
 
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         system_instruction: {
           parts: [{ text: SYSTEM_PROMPT }],
