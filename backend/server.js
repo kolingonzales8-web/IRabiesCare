@@ -6,10 +6,15 @@ const helmet     = require('helmet');
 const morgan     = require('morgan');
 const { connectDB } = require('./src/config/db');
 
+const startVaccinationReminderJob = require('./src/utils/vaccinationReminder');
+
 const app = express();
 
 // Connect to MongoDB
 connectDB();
+
+// Start cron jobs
+startVaccinationReminderJob();
 
 // Middlewares
 app.use(helmet());

@@ -10,6 +10,9 @@ const userSchema = new mongoose.Schema({
   // ── Online presence ──────────────────────
   isOnline: { type: Boolean, default: false },
   lastSeen: { type: Date,    default: null  },
+
+  // ── Push notifications ───────────────────
+  pushToken: { type: String, default: null },
   // ─────────────────────────────────────────
 }, {
   timestamps: true,

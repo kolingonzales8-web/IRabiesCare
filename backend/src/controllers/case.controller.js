@@ -1,5 +1,15 @@
-const Case        = require('../models/case.model');
-const logActivity = require('../utils/logActivity');
+const Case                 = require('../models/case.model');
+const logActivity          = require('../utils/logActivity');
+const sendPushNotification = require('../utils/sendPushNotification');
+const User                 = require('../models/user.model');
+
+// Human-readable status messages for patients
+const STATUS_MESSAGES = {
+  'Pending':   'Your rabies case report has been received and is pending review.',
+  'Ongoing':   'Your case is now under observation. Please follow your health center\'s instructions.',
+  'Urgent':    'Your case has been marked as urgent. Please visit your health center immediately.',
+  'Completed': 'Your rabies case has been marked as completed. Stay safe!',
+};
 
 // Staff/Admin: Get cases based on role
 exports.getAllCases = async (req, res) => {
@@ -153,6 +163,27 @@ exports.updateCase = async (req, res) => {
         user: req.user, targetId: caseItem._id,
         targetName: `Case #${caseItem.caseId} - ${caseItem.fullName}`, req,
       });
+
+      // ── Push notification to patient on status change ──────────────────────
+      try {
+        if (caseItem.patientUserId) {
+          const patient = await User.findById(caseItem.patientUserId).select('pushToken name');
+          if (patient?.pushToken) {
+            const message = STATUS_MESSAGES[sanitized.status]
+              ?? `Your case status has been updated to: ${sanitized.status}.`;
+            await sendPushNotification(
+              patient.pushToken,
+              'Case Status Update',
+              message,
+              { type: 'case_status_update', caseId: caseItem._id.toString(), status: sanitized.status }
+            );
+          }
+        }
+      } catch (notifErr) {
+        // Never block the main response if notification fails
+        console.error('[Push] Failed to notify patient:', notifErr.message);
+      }
+      // ──────────────────────────────────────────────────────────────────────
     }
 
     if (sanitized.assignedTo && sanitized.assignedTo !== oldAssigned) {
