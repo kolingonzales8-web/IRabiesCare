@@ -85,6 +85,13 @@ exports.createAnimal = async (req, res) => {
       createdBy: req.user.id,
     });
 
+     await logActivity({
+      action: 'CREATE', module: 'Animal',
+      description: `Animal record created for Case #${linkedCase.caseId}`,
+      user: req.user, targetId: newAnimal._id,
+      targetName: `${animalSpecies} - ${linkedCase.fullName}`, req,
+    });
+
     res.status(201).json({ message: 'Animal record created successfully', animal: newAnimal });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -102,6 +109,13 @@ exports.updateAnimal = async (req, res) => {
 
     Object.assign(animal, req.body);
     await animal.save();
+
+      await logActivity({
+      action: 'UPDATE', module: 'Animal',
+      description: `Animal record updated`,
+      user: req.user, targetId: animal._id,
+      targetName: animal.animalSpecies, req,
+    });
     res.status(200).json({ message: 'Animal record updated successfully', animal });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -112,6 +126,14 @@ exports.deleteAnimal = async (req, res) => {
   try {
     const animal = await Animal.findById(req.params.id);
     if (!animal) return res.status(404).json({ message: 'Animal record not found' });
+
+     await logActivity({
+      action: 'DELETE', module: 'Animal',
+      description: `Animal record deleted`,
+      user: req.user, targetId: animal._id,
+      targetName: animal.animalSpecies, req,
+    });
+
     await animal.deleteOne();
     res.status(200).json({ message: 'Animal record deleted successfully' });
   } catch (error) {
@@ -139,25 +161,3 @@ exports.getAnimalStats = async (req, res) => {
   }
 };
 
-await logActivity({
-  action: 'CREATE', module: 'Animal',
-  description: `Animal record created for Case #${linkedCase.caseId}`,
-  user: req.user, targetId: newAnimal._id,
-  targetName: `${animalSpecies} - ${linkedCase.fullName}`, req,
-});
-
-// In updateAnimal — add after animal.save():
-await logActivity({
-  action: 'UPDATE', module: 'Animal',
-  description: `Animal record updated`,
-  user: req.user, targetId: animal._id,
-  targetName: animal.animalSpecies, req,
-});
-
-// In deleteAnimal — add before animal.deleteOne():
-await logActivity({
-  action: 'DELETE', module: 'Animal',
-  description: `Animal record deleted`,
-  user: req.user, targetId: animal._id,
-  targetName: animal.animalSpecies, req,
-});

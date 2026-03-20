@@ -67,6 +67,13 @@ exports.createPatient = async (req, res) => {
       doses: doses || [], nextSchedule: nextSchedule || null, caseOutcome,
     });
 
+      await logActivity({
+    action: 'CREATE', module: 'Patient',
+    description: `Patient record created for ${linkedCase.fullName}`,
+    user: req.user, targetId: patient._id,
+    targetName: linkedCase.fullName, req,
+  });
+
     res.status(201).json({ message: 'Patient record created', patient });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -80,10 +87,20 @@ exports.updatePatient = async (req, res) => {
     if (!patient) return res.status(404).json({ message: 'Patient not found' });
     Object.assign(patient, req.body);
     await patient.save();
+
+     await logActivity({
+      action: 'UPDATE', module: 'Patient',
+      description: `Patient record updated for ${patient.fullName}`,
+      user: req.user, targetId: patient._id,
+      targetName: patient.fullName, req,
+    });
+
     res.status(200).json({ message: 'Patient updated', patient });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+
+
 };
 
 // Delete patient
@@ -91,6 +108,14 @@ exports.deletePatient = async (req, res) => {
   try {
     const patient = await Patient.findById(req.params.id);
     if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+     await logActivity({
+      action: 'DELETE', module: 'Patient',
+      description: `Patient record deleted for ${patient.fullName}`,
+      user: req.user, targetId: patient._id,
+      targetName: patient.fullName, req,
+    });
+
     await patient.deleteOne();
     res.status(200).json({ message: 'Patient deleted' });
   } catch (error) {
@@ -133,25 +158,3 @@ exports.getMyPatients = async (req, res) => {
   }
 };
 
-await logActivity({
-  action: 'CREATE', module: 'Patient',
-  description: `Patient record created for ${linkedCase.fullName}`,
-  user: req.user, targetId: patient._id,
-  targetName: linkedCase.fullName, req,
-});
-
-// In updatePatient — add after patient.save():
-await logActivity({
-  action: 'UPDATE', module: 'Patient',
-  description: `Patient record updated for ${patient.fullName}`,
-  user: req.user, targetId: patient._id,
-  targetName: patient.fullName, req,
-});
-
-// In deletePatient — add before patient.deleteOne():
-await logActivity({
-  action: 'DELETE', module: 'Patient',
-  description: `Patient record deleted for ${patient.fullName}`,
-  user: req.user, targetId: patient._id,
-  targetName: patient.fullName, req,
-});

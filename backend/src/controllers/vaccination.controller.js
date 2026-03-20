@@ -202,6 +202,13 @@ exports.createVaccination = async (req, res) => {
       manufacturer, vaccineStockUsed, status: autoStatus, createdBy: req.user.id,
     });
 
+    await logActivity({
+      action: 'CREATE', module: 'Vaccination',
+      description: `Vaccination record created for patient`,
+      user: req.user, targetId: newVaccination._id,
+      targetName: vaccineBrand, req,
+    });
+
     // ── Push notification: notify patient of their vaccination schedule ───────
     try {
       const patientUser = await getPatientPushToken(patientId);
@@ -274,6 +281,13 @@ exports.updateVaccination = async (req, res) => {
 
     await vaccination.save();
 
+     await logActivity({
+      action: 'UPDATE', module: 'Vaccination',
+      description: `Vaccination record updated`,
+      user: req.user, targetId: vaccination._id,
+      targetName: vaccination.vaccineBrand, req,
+    });
+
     // ── Push notification: notify patient of updated/new scheduled dates ──────
     try {
       const patientUser = await getPatientPushToken(vaccination.patientId);
@@ -305,6 +319,14 @@ exports.deleteVaccination = async (req, res) => {
   try {
     const vaccination = await Vaccination.findById(req.params.id);
     if (!vaccination) return res.status(404).json({ message: 'Vaccination record not found' });
+
+    await logActivity({
+      action: 'DELETE', module: 'Vaccination',
+      description: `Vaccination record deleted`,
+      user: req.user, targetId: vaccination._id,
+      targetName: vaccination.vaccineBrand, req,
+    });
+
     await vaccination.deleteOne();
     res.status(200).json({ message: 'Vaccination record deleted successfully' });
   } catch (error) {
@@ -388,25 +410,3 @@ exports.getUpcomingVaccinations = async (req, res) => {
   }
 };
 
-await logActivity({
-  action: 'CREATE', module: 'Vaccination',
-  description: `Vaccination record created for patient`,
-  user: req.user, targetId: newVaccination._id,
-  targetName: vaccineBrand, req,
-});
-
-// In updateVaccination — add after vaccination.save():
-await logActivity({
-  action: 'UPDATE', module: 'Vaccination',
-  description: `Vaccination record updated`,
-  user: req.user, targetId: vaccination._id,
-  targetName: vaccination.vaccineBrand, req,
-});
-
-// In deleteVaccination — add before vaccination.deleteOne():
-await logActivity({
-  action: 'DELETE', module: 'Vaccination',
-  description: `Vaccination record deleted`,
-  user: req.user, targetId: vaccination._id,
-  targetName: vaccination.vaccineBrand, req,
-});
