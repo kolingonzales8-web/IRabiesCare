@@ -1,6 +1,8 @@
-const Vaccination = require('../models/vaccination.model');
-const Patient     = require('../models/patient.model');
-const Case        = require('../models/case.model');
+const Vaccination          = require('../models/vaccination.model');
+const Patient              = require('../models/patient.model');
+const Case                 = require('../models/case.model');
+const User                 = require('../models/user.model');
+const sendPushNotification = require('../utils/sendPushNotification');
 
 const resolveStatus = (data, providedStatus) => {
   if (!data) return providedStatus || 'Ongoing';
@@ -9,6 +11,46 @@ const resolveStatus = (data, providedStatus) => {
   if (doneCount === 5) return 'Completed';
   if (doneCount > 0)  return 'Ongoing';
   return providedStatus || 'Ongoing';
+};
+
+// ── Helper: find patient's push token via chain ───────────────────────────────
+const getPatientPushToken = async (patientId) => {
+  try {
+    const patient = await Patient.findById(patientId);
+    if (!patient) return null;
+
+    const caseRecord = await Case.findById(patient.caseId);
+    if (!caseRecord?.patientUserId) return null;
+
+    const user = await User.findById(caseRecord.patientUserId).select('pushToken name');
+    return user?.pushToken ? { pushToken: user.pushToken, name: user.name } : null;
+  } catch {
+    return null;
+  }
+};
+
+// ── Helper: build notification message for scheduled doses ───────────────────
+const DOSE_LABELS = { day0: 'Day 0', day3: 'Day 3', day7: 'Day 7', day14: 'Day 14', day28: 'Day 28 (Final)' };
+
+const getScheduledDoseMessages = (scheduleFields, previousFields = {}) => {
+  const messages = [];
+  const days = ['day0', 'day3', 'day7', 'day14', 'day28'];
+
+  for (const day of days) {
+    const scheduledField = `${day}Scheduled`;
+    const newDate        = scheduleFields[scheduledField];
+    const oldDate        = previousFields[scheduledField];
+
+    // Only notify if a new scheduled date was just set or changed
+    if (!newDate) continue;
+    if (oldDate && new Date(oldDate).toDateString() === new Date(newDate).toDateString()) continue;
+
+    const formatted = new Date(newDate).toLocaleDateString('en-PH', {
+      month: 'long', day: 'numeric', year: 'numeric',
+    });
+    messages.push(`${DOSE_LABELS[day]}: ${formatted}`);
+  }
+  return messages;
 };
 
 // Get All Vaccinations — scoped by role
@@ -47,7 +89,6 @@ exports.getAllVaccinations = async (req, res) => {
     const totalPages = Math.ceil(total / limit);
     const paginated  = vaccinations.slice((page - 1) * limit, page * limit);
 
-    // Build lookup maps
     const caseMap = {};
     scopedCases.forEach(c => { caseMap[c._id.toString()] = c; });
     const patientCaseMap = {};
@@ -85,7 +126,7 @@ exports.getMyVaccinations = async (req, res) => {
     const patients   = await Patient.find({ caseId: { $in: caseIds } }).select('_id caseId');
     if (!patients.length) return res.status(200).json([]);
 
-    const patientIds = patients.map(p => p._id);
+    const patientIds   = patients.map(p => p._id);
     const vaccinations = await Vaccination.find({ patientId: { $in: patientIds } }).sort({ createdAt: -1 });
 
     const caseMap = {};
@@ -160,6 +201,26 @@ exports.createVaccination = async (req, res) => {
       manufacturer, vaccineStockUsed, status: autoStatus, createdBy: req.user.id,
     });
 
+    // ── Push notification: notify patient of their vaccination schedule ───────
+    try {
+      const patientUser = await getPatientPushToken(patientId);
+      if (patientUser?.pushToken) {
+        const scheduledDoses = getScheduledDoseMessages(scheduleFields);
+        if (scheduledDoses.length > 0) {
+          await sendPushNotification(
+            patientUser.pushToken,
+            'Vaccination Schedule Set',
+            `Your anti-rabies vaccine schedule has been set:\n${scheduledDoses.join('\n')}`,
+            { type: 'vaccination_scheduled', vaccinationId: newVaccination._id.toString() }
+          );
+          console.log(`[Push] Vaccination schedule sent to ${patientUser.name}`);
+        }
+      }
+    } catch (notifErr) {
+      console.error('[Push] Failed to notify vaccination schedule:', notifErr.message);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     res.status(201).json({ message: 'Vaccination record created successfully', vaccination: newVaccination });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -174,6 +235,15 @@ exports.updateVaccination = async (req, res) => {
 
     const { vaccineBrand, injectionSite, schedule, rigGiven, rigType,
       rigDateAdministered, rigDosage, manufacturer, vaccineStockUsed, status } = req.body;
+
+    // Save previous schedule for comparison
+    const previousFields = {
+      day0Scheduled:  vaccination.day0Scheduled,
+      day3Scheduled:  vaccination.day3Scheduled,
+      day7Scheduled:  vaccination.day7Scheduled,
+      day14Scheduled: vaccination.day14Scheduled,
+      day28Scheduled: vaccination.day28Scheduled,
+    };
 
     const scheduleFields = {
       day0:  schedule?.day0  || null, day3:  schedule?.day3  || null,
@@ -202,6 +272,27 @@ exports.updateVaccination = async (req, res) => {
     });
 
     await vaccination.save();
+
+    // ── Push notification: notify patient of updated/new scheduled dates ──────
+    try {
+      const patientUser = await getPatientPushToken(vaccination.patientId);
+      if (patientUser?.pushToken) {
+        const newDoses = getScheduledDoseMessages(scheduleFields, previousFields);
+        if (newDoses.length > 0) {
+          await sendPushNotification(
+            patientUser.pushToken,
+            'Vaccination Schedule Updated',
+            `Your anti-rabies vaccine schedule has been updated:\n${newDoses.join('\n')}`,
+            { type: 'vaccination_scheduled', vaccinationId: vaccination._id.toString() }
+          );
+          console.log(`[Push] Updated vaccination schedule sent to ${patientUser.name}`);
+        }
+      }
+    } catch (notifErr) {
+      console.error('[Push] Failed to notify vaccination update:', notifErr.message);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     res.status(200).json({ message: 'Vaccination record updated successfully', vaccination });
   } catch (error) {
     res.status(500).json({ message: error.message });
