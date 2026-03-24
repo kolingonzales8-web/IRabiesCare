@@ -49,7 +49,7 @@ exports.getAllCases = async (req, res) => {
 // Mobile: Get own cases (no pagination)
 exports.getMyCases = async (req, res) => {
   try {
-    const cases = await Case.find({ patientUserId: req.user.id }).sort({ createdAt: -1 });
+    const cases = await Case.find({ createdBy: req.user.id }).sort({ createdAt: -1 });
     res.status(200).json(cases);
   } catch (error) {
     res.status(500).json({ message: error.message });
