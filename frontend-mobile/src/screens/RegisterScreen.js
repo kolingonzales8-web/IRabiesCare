@@ -103,30 +103,38 @@ export default function RegisterScreen({ navigation }) {
   }, []);
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPass) {
-      Alert.alert('Missing Fields', 'Please fill in all fields.');
-      return;
-    }
-    if (password.length < 6) {
-      Alert.alert('Weak Password', 'Password must be at least 6 characters.');
-      return;
-    }
-    if (password !== confirmPass) {
-      Alert.alert('Password Mismatch', 'Passwords do not match. Please try again.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await registerUser({ name, email, password });
-      await setAuth(res.data.user, res.data.token);
-      navigation.replace('Dashboard');
-    } catch (err) {
-      Alert.alert('Registration Failed', err.response?.data?.message || 'Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (!name || !email || !password || !confirmPass) {
+    Alert.alert('Missing Fields', 'Please fill in all fields.');
+    return;
+  }
 
+  // ✅ Add email format validation
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    Alert.alert('Invalid Email', 'Please enter a valid email address.');
+    return;
+  }
+
+  if (password.length < 6) {
+    Alert.alert('Weak Password', 'Password must be at least 6 characters.');
+    return;
+  }
+  if (password !== confirmPass) {
+    Alert.alert('Password Mismatch', 'Passwords do not match. Please try again.');
+    return;
+  }
+  setLoading(true);
+  try {
+    const res = await registerUser({ name, email, password });
+    await setAuth(res.data.user, res.data.token);
+    navigation.replace('Dashboard');
+  } catch (err) {
+    // ✅ Show exact backend error message
+    const message = err.response?.data?.message || 'Something went wrong. Please try again.';
+    Alert.alert('Registration Failed', message);
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <KeyboardAvoidingView
       style={styles.root}

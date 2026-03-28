@@ -9,6 +9,7 @@ import CaseDetail           from '../screens/CaseDetail';
 import BottomTabNavigator   from './BottomTabNavigator';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ChatScreen           from '../screens/ChatScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -29,6 +30,7 @@ export default function AppNavigator() {
           <Stack.Screen name="Login"          component={LoginScreen} />
           <Stack.Screen name="Register"       component={RegisterScreen} />
           <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         </>
       )}
     </Stack.Navigator>

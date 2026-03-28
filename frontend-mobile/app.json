@@ -53,7 +53,8 @@
           "photosPermission": "Allow iRabiesCare to access your photos to upload wound images.",
           "cameraPermission": "Allow iRabiesCare to use your camera to take wound photos."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "reactCompiler": true

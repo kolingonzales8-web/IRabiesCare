@@ -6,7 +6,7 @@ import useThemeStore from '../store/themeStore';
 import {
   LayoutDashboard, ClipboardList, UserRound, Syringe, Dog,
   Package, Bell, BarChart2, TrendingUp, Users, Clock, Settings,
-  Shield, LogOut, Menu, RefreshCw, Moon, Sun,
+  Shield, LogOut, Menu, RefreshCw, Moon, Sun, ChevronRight,
 } from 'lucide-react';
 
 const getNavSections = (role) => [
@@ -29,15 +29,21 @@ const getNavSections = (role) => [
       { icon: TrendingUp, label: 'Reports & Analytics', path: '/reports' },
     ],
   }] : []),
-  ...(role === 'admin' ? [{
-    title: 'System',
-    items: [
-      { icon: Users,    label: 'User Management', path: '/users' },
-      { icon: Clock,    label: 'Activity Logs',   path: '/activity' },
-      { icon: Settings, label: 'Settings',        path: '/settings' },
-    ],
-  }] : []),
-];
+          ...(role === 'admin' ? [{
+          title: 'System',
+          items: [
+            { icon: Users,    label: 'User Management', path: '/users' },
+            { icon: Clock,    label: 'Activity Logs',   path: '/activity' },
+            { icon: Settings, label: 'Settings',        path: '/settings' },
+          ],
+        }] : []),
+        ...(role === 'staff' ? [{
+          title: 'System',
+          items: [
+            { icon: Settings, label: 'Settings', path: '/settings' },
+          ],
+        }] : []),
+        ];
 
 const ROLE_LABEL = {
   admin: { label: 'Administrator', color: 'text-purple-400', bg: 'bg-purple-900/40' },
@@ -95,10 +101,11 @@ export default function MainLayout({ children }) {
   const navigate                  = useNavigate();
   const location                  = useLocation();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeNav, setActiveNav]     = useState(getActiveFromPath(location.pathname));
-  const [lastRefresh, setLastRefresh] = useState(new Date());
-  const [refreshing, setRefreshing]   = useState(false);
+ const [sidebarOpen, setSidebarOpen]   = useState(false);
+  const [activeNav, setActiveNav]       = useState(getActiveFromPath(location.pathname));
+  const [lastRefresh, setLastRefresh]   = useState(new Date());
+  const [refreshing, setRefreshing]     = useState(false);
+  const [userPopover, setUserPopover]   = useState(false);
 
   const navSections = getNavSections(user?.role);
   const roleInfo    = dark
@@ -112,7 +119,7 @@ export default function MainLayout({ children }) {
 
   useEffect(() => {
     if (user?.role === 'staff') {
-      const adminOnlyPaths = ['/users', '/inventory', '/schedule', '/coverage', '/reports', '/activity', '/settings'];
+      const adminOnlyPaths = ['/users', '/inventory', '/schedule', '/coverage', '/reports', '/activity'];
       if (adminOnlyPaths.some(p => location.pathname.startsWith(p))) {
         navigate('/dashboard');
       }
@@ -202,21 +209,79 @@ export default function MainLayout({ children }) {
           ))}
         </nav>
 
-        {/* User card */}
-        <div className={`p-4 border-t transition-colors duration-300 ${dark ? 'border-[#1e3a6e]' : 'border-slate-100'}`}>
-          <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors duration-300 ${d.userCard}`}>
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-              style={{ background: dark ? 'linear-gradient(135deg, #1e3a6e, #2563eb)' : 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
-              {avatarLetter}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className={`font-semibold text-sm truncate transition-colors duration-300 ${d.userName}`}>{user?.name || 'User'}</p>
-              <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 ${roleInfo.bg} ${roleInfo.color}`}>
-                {roleInfo.label}
-              </span>
-            </div>
-          </div>
+     {/* User card */}
+<div className={`p-4 border-t relative transition-colors duration-300 ${dark ? 'border-[#1e3a6e]' : 'border-slate-100'}`}>
+
+  {/* Popover */}
+  {userPopover && (
+    <>
+      <div className="fixed inset-0 z-[1001]" onClick={() => setUserPopover(false)} />
+      <div className={`absolute bottom-[88px] left-4 right-4 z-[1002] rounded-2xl border shadow-2xl overflow-hidden transition-all duration-200 ${dark ? 'bg-[#0d1b3e] border-[#1e3a6e]' : 'bg-white border-slate-200'}`}
+        style={{ animation: 'fadeScaleIn 0.15s cubic-bezier(.4,0,.2,1)' }}>
+        
+        {/* User info header */}
+        <div className={`px-4 py-3 border-b ${dark ? 'border-[#1e3a6e]' : 'border-slate-100'}`}>
+          <p className={`text-xs font-semibold truncate ${dark ? 'text-slate-300' : 'text-slate-600'}`}>{user?.email || user?.name}</p>
+          <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 ${roleInfo.bg} ${roleInfo.color}`}>
+            {roleInfo.label}
+          </span>
         </div>
+
+        {/* Actions */}
+        <div className="py-1.5">
+          <button
+            onClick={() => { navigate('/cases'); setUserPopover(false); setSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${dark ? 'text-slate-300 hover:bg-[#0f1f45]' : 'text-slate-600 hover:bg-slate-50'}`}>
+            <ClipboardList size={14} className="text-blue-500" />
+            Register New Case
+          </button>
+
+          <button
+            onClick={() => { navigate('/settings'); setUserPopover(false); setSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${dark ? 'text-slate-300 hover:bg-[#0f1f45]' : 'text-slate-600 hover:bg-slate-50'}`}>
+            <Settings size={14} className="text-slate-400" />
+            Settings
+          </button>
+
+          <button
+            onClick={toggle}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${dark ? 'text-slate-300 hover:bg-[#0f1f45]' : 'text-slate-600 hover:bg-slate-50'}`}>
+            {dark ? <Sun size={14} className="text-amber-400" /> : <Moon size={14} className="text-slate-400" />}
+            {dark ? 'Light Mode' : 'Dark Mode'}
+          </button>
+        </div>
+
+        {/* Divider + Logout */}
+        <div className={`border-t py-1.5 ${dark ? 'border-[#1e3a6e]' : 'border-slate-100'}`}>
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-red-500 ${dark ? 'hover:bg-[#0f1f45]' : 'hover:bg-red-50'}`}>
+            <LogOut size={14} />
+            Log out
+          </button>
+        </div>
+      </div>
+      <style>{`@keyframes fadeScaleIn{from{opacity:0;transform:scale(0.95) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}`}</style>
+    </>
+  )}
+
+  {/* Clickable User card */}
+  <button
+    onClick={() => setUserPopover(v => !v)}
+    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all hover:opacity-90 duration-300 ${d.userCard}`}>
+    <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+      style={{ background: dark ? 'linear-gradient(135deg, #1e3a6e, #2563eb)' : 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
+      {avatarLetter}
+    </div>
+    <div className="min-w-0 flex-1 text-left">
+      <p className={`font-semibold text-sm truncate transition-colors duration-300 ${d.userName}`}>{user?.name || 'User'}</p>
+      <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 ${roleInfo.bg} ${roleInfo.color}`}>
+        {roleInfo.label}
+      </span>
+    </div>
+    <ChevronRight size={14} className={`flex-shrink-0 transition-transform duration-200 ${userPopover ? 'rotate-90' : ''} ${dark ? 'text-slate-500' : 'text-slate-400'}`} />
+  </button>
+</div>
       </aside>
 
       {/* ── Main ── */}

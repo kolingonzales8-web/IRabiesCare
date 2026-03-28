@@ -23,6 +23,7 @@ import ReportAndAnalytics from './pages/ReportAndAnalytics';
 import UserManagement from './pages/UserManagement';
 import ForgotPassword from './pages/ForgotPassword';
 import Settings from './pages/Settings';
+import ResetPassword from './pages/ResetPassword';
 import ActivityLogs from './pages/Activitylogs';
 import useAuthStore from './store/authStore';
 
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/welcome" />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* ✅ Public route — no PrivateRoute or MainLayout */}
         <Route path="/forgot-password" element={<ForgotPassword />} />

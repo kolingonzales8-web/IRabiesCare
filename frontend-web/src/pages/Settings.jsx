@@ -219,9 +219,11 @@ export default function Settings() {
             </div>
           </Card>
 
-          {/* System Info */}
+          
+              {/* System Info — Admin only */}
+          {user?.role === 'admin' && (
           <Card dark={dark}>
-            <CardHeader icon={Info} label="System Info" dark={dark} />
+          <CardHeader icon={Info} label="System Info" dark={dark} />
             {[
               { icon: Database, label: 'Version',     value: 'v1.0.0'      },
               { icon: Globe,    label: 'Environment', value: 'Production'  },
@@ -241,6 +243,7 @@ export default function Settings() {
               Enterprise-grade security active
             </div>
           </Card>
+)}
 
         </div>
       </div>

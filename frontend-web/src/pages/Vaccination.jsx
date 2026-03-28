@@ -3,9 +3,11 @@ import {
   Plus, Search, Eye, Pencil, Trash2, RefreshCw, Download, Filter,
   ChevronLeft, ChevronRight, Loader2, Syringe,
   X, Save, CheckCircle2, XCircle, CalendarCheck,
-  Circle, AlertCircle, Clock, User, Activity, Calendar, TrendingUp,
+  Circle, AlertCircle, Clock, User, Activity, Calendar, TrendingUp, Bell,
 } from 'lucide-react';
 import apiClient from '../api/client';
+
+import { exportVaccinations } from '../utils/exportToExcel';
 
 /* ─────────────────────────────────────
    Constants
@@ -82,7 +84,7 @@ const PanelShell = ({ width = 'max-w-2xl', children, onBackdropClick }) => (
   </>
 );
 
-const DoseScheduleForm = ({ doses, updateDose, setDoseStatus }) => {
+const DoseScheduleForm = ({ doses, updateDose, setDoseStatus, onRemind }) => {
   const rowStyle = (status) => {
     if (status === 'done')   return 'bg-emerald-50/60 border-l-4 border-l-emerald-400';
     if (status === 'missed') return 'bg-red-50/50 border-l-4 border-l-red-400';
@@ -134,16 +136,22 @@ const DoseScheduleForm = ({ doses, updateDose, setDoseStatus }) => {
               />
 
               {/* Done / Miss buttons */}
-              <div className="flex gap-1">
-                <button type="button" onClick={() => setDoseStatus(key, 'done')}
-                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${isDone ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-400 hover:text-emerald-600'}`}>
-                  <CheckCircle2 size={11} />Done
+                          <div className="flex gap-1 flex-wrap">
+              <button type="button" onClick={() => setDoseStatus(key, 'done')}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${isDone ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-400 hover:text-emerald-600'}`}>
+                <CheckCircle2 size={11} />Done
+              </button>
+              <button type="button" onClick={() => setDoseStatus(key, 'missed')}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${isMissed ? 'bg-red-500 border-red-500 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:border-red-400 hover:text-red-500'}`}>
+                <XCircle size={11} />Miss
+              </button>
+              {onRemind && (
+                <button type="button" onClick={() => onRemind(key)}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold border bg-white border-blue-200 text-blue-500 hover:bg-blue-50 transition-all">
+                  <Bell size={11} />Remind
                 </button>
-                <button type="button" onClick={() => setDoseStatus(key, 'missed')}
-                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${isMissed ? 'bg-red-500 border-red-500 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:border-red-400 hover:text-red-500'}`}>
-                  <XCircle size={11} />Miss
-                </button>
-              </div>
+              )}
+            </div>
             </div>
           );
         })}
@@ -375,7 +383,24 @@ const EditPanel = ({ vaccinationId, onClose, onSaved }) => {
   }, [vaccinationId]);
 
   const set = (f) => (v) => setForm(p => ({ ...p, [f]: v }));
-  const updateDose = (key, field, val) => setDoses(prev => ({ ...prev, [key]: { ...prev[key], [field]: val } }));
+  const updateDose = (key, field, val) => {
+  setDoses(prev => {
+    const updated = { ...prev, [key]: { ...prev[key], [field]: val } };
+    if (key === 'day0' && field === 'scheduledDate' && val) {
+      const base = new Date(val);
+      const addDays = (d, days) => {
+        const date = new Date(d);
+        date.setDate(date.getDate() + days);
+        return date.toISOString().split('T')[0];
+      };
+      updated.day3  = { ...prev.day3,  scheduledDate: addDays(base, 3)  };
+      updated.day7  = { ...prev.day7,  scheduledDate: addDays(base, 7)  };
+      updated.day14 = { ...prev.day14, scheduledDate: addDays(base, 14) };
+      updated.day28 = { ...prev.day28, scheduledDate: addDays(base, 28) };
+    }
+    return updated;
+  });
+};
  const setDoseStatus = (key, newStatus) => setDoses(prev => {
   const cur = prev[key];
   const resolved = cur.status === newStatus ? 'pending' : newStatus;
@@ -456,7 +481,19 @@ const EditPanel = ({ vaccinationId, onClose, onSaved }) => {
             </div>
 
             {/* Dose schedule */}
-            <DoseScheduleForm doses={doses} updateDose={updateDose} setDoseStatus={setDoseStatus} />
+          <DoseScheduleForm 
+          doses={doses} 
+          updateDose={updateDose} 
+          setDoseStatus={setDoseStatus}
+          onRemind={async (doseKey) => {
+            try {
+              await apiClient.post(`/vaccinations/${vaccinationId}/remind/${doseKey}`);
+              alert(`✅ Reminder sent for ${doseKey}!`);
+            } catch (err) {
+              alert(err.response?.data?.message || 'Failed to send reminder');
+            }
+          }}
+        />
 
             {/* Vaccine info */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
@@ -544,7 +581,24 @@ const AddPanel = ({ onClose, onSaved }) => {
   }, []);
 
   const set = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
-  const updateDose = (key, field, val) => setDoses(prev => ({ ...prev, [key]: { ...prev[key], [field]: val } }));
+  const updateDose = (key, field, val) => {
+  setDoses(prev => {
+    const updated = { ...prev, [key]: { ...prev[key], [field]: val } };
+    if (key === 'day0' && field === 'scheduledDate' && val) {
+      const base = new Date(val);
+      const addDays = (d, days) => {
+        const date = new Date(d);
+        date.setDate(date.getDate() + days);
+        return date.toISOString().split('T')[0];
+      };
+      updated.day3  = { ...prev.day3,  scheduledDate: prev.day3.scheduledDate  || addDays(base, 3)  };
+      updated.day7  = { ...prev.day7,  scheduledDate: prev.day7.scheduledDate  || addDays(base, 7)  };
+      updated.day14 = { ...prev.day14, scheduledDate: prev.day14.scheduledDate || addDays(base, 14) };
+      updated.day28 = { ...prev.day28, scheduledDate: prev.day28.scheduledDate || addDays(base, 28) };
+    }
+    return updated;
+  });
+};
  const setDoseStatus = (key, newStatus) => setDoses(prev => {
   const cur = prev[key];
   const resolved = cur.status === newStatus ? 'pending' : newStatus;
@@ -825,9 +879,13 @@ export default function Vaccination() {
             className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 shadow-sm">
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />Refresh
           </button>
-          <button className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 shadow-sm">
-            <Download size={12} />Export
-          </button>
+
+             <button
+              onClick={() => exportVaccinations(vaccinations)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 shadow-sm">
+              <Download size={12} />Export
+            </button>
+
           <button onClick={() => { closeAll(); setAddOpen(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm hover:-translate-y-0.5 transition-all">
             <Plus size={13} /> Add Vaccination

@@ -5,7 +5,7 @@ import {
   ActivityIndicator, Animated, StatusBar,
 } from 'react-native';
 import { Mail, Shield, ArrowLeft, CheckCircle, KeyRound } from 'lucide-react-native';
-import apiClient from '../api/client';
+import { forgotPassword } from '../api/auth';
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail]           = useState('');
@@ -13,7 +13,6 @@ export default function ForgotPasswordScreen({ navigation }) {
   const [emailFocused, setEmailFocused] = useState(false);
   const [error, setError]           = useState('');
   const [sent, setSent]             = useState(false);
-  const [tempPassword, setTempPassword] = useState('');
 
   const emailRef = useRef(null);
 
@@ -44,9 +43,7 @@ export default function ForgotPasswordScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const res = await apiClient.post('/auth/forgot-password', { email: email.trim() });
-      // ⚠️ In production tempPassword won't be returned — show it for dev/testing only
-      setTempPassword(res.data.tempPassword || '');
+      await forgotPassword({ email: email.trim() });
       setSent(true);
       animateSuccess();
     } catch (err) {
@@ -94,8 +91,8 @@ export default function ForgotPasswordScreen({ navigation }) {
           <Text style={styles.pageTitle}>Forgot Password?</Text>
           <Text style={styles.pageSubtitle}>
             {sent
-              ? 'Check the details below to regain access'
-              : 'Enter your registered email and we\'ll send you a temporary password'}
+              ? 'A reset link and an OTP code were sent to your email.'
+              : 'Enter your registered email and we\'ll send you reset instructions.'}
           </Text>
         </Animated.View>
 
@@ -108,7 +105,7 @@ export default function ForgotPasswordScreen({ navigation }) {
               /* ── Request Form ── */
               <>
                 <Text style={styles.cardTitle}>Account Recovery</Text>
-                <Text style={styles.cardSubtitle}>We'll generate a temporary password for you</Text>
+                <Text style={styles.cardSubtitle}>Use email to receive OTP and reset link</Text>
 
                 {/* Error */}
                 {!!error && (
@@ -156,7 +153,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                   ) : (
                     <>
                       <Mail color="#fff" size={17} />
-                      <Text style={styles.submitText}>Send Temporary Password</Text>
+                      <Text style={styles.submitText}>Send Reset Link & OTP</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -176,48 +173,31 @@ export default function ForgotPasswordScreen({ navigation }) {
                   <CheckCircle color="#10b981" size={52} strokeWidth={1.8} />
                 </Animated.View>
 
-                <Text style={styles.successTitle}>Password Reset!</Text>
+                <Text style={styles.successTitle}>Email Sent!</Text>
                 <Text style={styles.successSubtitle}>
-                  A temporary password has been generated for:
+                  A reset link and OTP were sent to:
                 </Text>
                 <View style={styles.emailChip}>
                   <Mail color="#1565C0" size={13} />
                   <Text style={styles.emailChipText}>{email}</Text>
                 </View>
 
-                {/* Show temp password — remove in production */}
-                {!!tempPassword && (
-                  <View style={styles.tempPassBox}>
-                    <Text style={styles.tempPassLabel}>Your Temporary Password</Text>
-                    <Text style={styles.tempPassValue}>{tempPassword}</Text>
-                    <Text style={styles.tempPassNote}>
-                      Use this to log in, then change your password immediately from your profile settings.
-                    </Text>
-                  </View>
-                )}
-
-                <View style={styles.stepList}>
-                  {[
-                    'Log in using the temporary password above',
-                    'Go to Profile → Change Password',
-                    'Set a new secure password',
-                  ].map((step, i) => (
-                    <View key={i} style={styles.stepRow}>
-                      <View style={styles.stepNum}>
-                        <Text style={styles.stepNumText}>{i + 1}</Text>
-                      </View>
-                      <Text style={styles.stepText}>{step}</Text>
-                    </View>
-                  ))}
-                </View>
+                <Text style={[styles.successSubtitle, { marginBottom: 16, fontSize: 13 }]}>Open Reset Password screen and use the OTP provided in email.</Text>
 
                 <TouchableOpacity
                   style={styles.submitBtn}
-                  onPress={() => navigation.navigate('Login')}
+                  onPress={() => navigation.navigate('ResetPassword', { email })}
                   activeOpacity={0.88}
                 >
                   <Shield color="#fff" size={17} />
-                  <Text style={styles.submitText}>Back to Login</Text>
+                  <Text style={styles.submitText}>Go to Reset</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.cancelBtn, { marginTop: 14 }]}
+                  onPress={() => navigation.navigate('Login')}
+                >
+                  <Text style={styles.cancelText}>Back to Login</Text>
                 </TouchableOpacity>
               </>
             )}

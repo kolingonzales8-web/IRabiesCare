@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { getAllPatients, deletePatient as deletePatientAPI, getPatientStats, getPatientById, updatePatient, createPatient } from '../api/patients';
 import apiClient from '../api/client';
+import { exportPatients } from '../utils/exportToExcel';
 
 const ITEMS_PER_PAGE = 10;
 const SLIDE_IN = `@keyframes slideInRight{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}`;
@@ -332,9 +333,11 @@ export default function Patient() {
           <button onClick={refresh} disabled={refreshing} className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 shadow-sm disabled:opacity-50">
             <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />Refresh
           </button>
-          <button className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 shadow-sm">
+
+          <button onClick={() => exportPatients(patients)} className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 shadow-sm">
             <Download size={14} />Export
           </button>
+          
           <button onClick={() => { closeAll(); setAddOpen(true); }} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm hover:-translate-y-0.5 transition-all">
             <Plus size={15} />Add Patient
           </button>
