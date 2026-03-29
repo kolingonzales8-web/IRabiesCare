@@ -19,8 +19,11 @@ exports.getAllCases = async (req, res) => {
 
     const where = req.user.role === 'admin' ? {} : { assignedTo: req.user.id };
 
-   if (req.query.assigned === 'true') where.assignedTo = { $ne: null };
-    if (status && status !== 'All') where.status = status;
+    if (unassigned === 'true') {
+      where.assignedTo = null;  // ✅ filter only unassigned
+    } else if (status && status !== 'All') {
+      where.status = status;    // ✅ only apply status filter when NOT filtering unassigned
+    }
 
     if (search) {
       where.$or = [
