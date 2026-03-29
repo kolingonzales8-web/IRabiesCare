@@ -19,7 +19,7 @@ exports.getAllCases = async (req, res) => {
 
     const where = req.user.role === 'admin' ? {} : { assignedTo: req.user.id };
 
-    if (unassigned === 'true') where.assignedTo = null;
+   if (req.query.assigned === 'true') where.assignedTo = { $ne: null };
     if (status && status !== 'All') where.status = status;
 
     if (search) {
@@ -64,7 +64,8 @@ exports.getMyCases = async (req, res) => {
 // Get single case
 exports.getCaseById = async (req, res) => {
   try {
-    const caseItem = await Case.findById(req.params.id);
+    const caseItem = await Case.findById(req.params.id)
+      .populate('assignedTo', 'name role email');
     if (!caseItem) return res.status(404).json({ message: 'Case not found' });
     res.status(200).json(caseItem);
   } catch (error) {
