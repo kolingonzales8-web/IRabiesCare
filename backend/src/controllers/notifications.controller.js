@@ -4,78 +4,112 @@ const Animal      = require('../models/animal.model');
 const Vaccination = require('../models/vaccination.model');
 const User        = require('../models/user.model');
 
+// ── In-memory SSE client registry ────────────────────────────────────────────
+// Map of userId (string) → { res, user }
+const clients = new Map();
+
+/**
+ * GET /api/notifications/stream
+ * Opens a persistent SSE connection for real-time badge updates.
+ */
+exports.streamNotifications = (req, res) => {
+  res.setHeader('Content-Type',  'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection',    'keep-alive');
+  res.flushHeaders();
+
+  const userId = req.user.id.toString();
+  clients.set(userId, { res, user: req.user });
+
+  // Initial ping
+  res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+
+  // Heartbeat every 25s to survive proxy timeouts
+  const heartbeat = setInterval(() => {
+    res.write(': heartbeat\n\n');
+  }, 25_000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    clients.delete(userId);
+    console.log(`[SSE] Client disconnected: ${userId}`);
+  });
+
+  console.log(`[SSE] Client connected: ${userId} (${req.user.role})`);
+};
+
+/**
+ * Push a notification event to specific users by their IDs.
+ * Called internally from other controllers after create/assign actions.
+ *
+ * @param {string[]} userIds  - Who to notify
+ * @param {object}   payload  - { type, module, message }
+ */
+exports.pushToUsers = (userIds, payload) => {
+  const data = JSON.stringify(payload);
+  userIds.forEach(uid => {
+    const client = clients.get(uid.toString());
+    if (client) {
+      client.res.write(`event: notification\ndata: ${data}\n\n`);
+    }
+  });
+};
+
+/**
+ * Helper: get all connected admin user IDs.
+ */
+exports.getConnectedAdminIds = () => {
+  const adminIds = [];
+  clients.forEach((client, uid) => {
+    if (client.user.role === 'admin') adminIds.push(uid);
+  });
+  return adminIds;
+};
+
 /**
  * GET /api/notifications/counts
- * Returns today's new record counts for nav badge display.
- * Scoped by role: admin sees all, staff sees only assigned cases.
+ * Initial hydration on page load — scoped counts, excludes self-created records.
  */
 exports.getNotificationCounts = async (req, res) => {
   try {
-    // ── Today's date range (midnight → now) ──────────────────────────────────
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
-
     const today = { $gte: startOfDay, $lte: endOfDay };
 
-    // ── Scope cases by role ───────────────────────────────────────────────────
-    const caseWhere = req.user.role === 'admin'
-      ? {}
-      : { assignedTo: req.user.id };
+    const userId  = req.user.id;
+    const isAdmin = req.user.role === 'admin';
 
-    // Get scoped case IDs for patient/animal/vaccination lookups
-    const scopedCases    = await Case.find(caseWhere).select('_id');
-    const scopedCaseIds  = scopedCases.map(c => c._id);
+    // Staff: only cases assigned to them
+    // Admin: all cases
+    const caseWhere = isAdmin ? {} : { assignedTo: userId };
 
-    const scopedPatients    = await Patient.find({ caseId: { $in: scopedCaseIds } }).select('_id');
-    const scopedPatientIds  = scopedPatients.map(p => p._id);
+    const scopedCases      = await Case.find(caseWhere).select('_id');
+    const scopedCaseIds    = scopedCases.map(c => c._id);
+    const scopedPatients   = await Patient.find({ caseId: { $in: scopedCaseIds } }).select('_id');
+    const scopedPatientIds = scopedPatients.map(p => p._id);
 
-    // ── Run all counts in parallel ────────────────────────────────────────────
-    const [
-      newCases,
-      newPatients,
-      newAnimals,
-      newVaccinations,
-      newUsers,
-    ] = await Promise.all([
-      // New cases today (scoped)
-      Case.countDocuments({
-        ...caseWhere,
-        createdAt: today,
-      }),
+    const [newCases, newPatients, newAnimals, newVaccinations, newUsers] = await Promise.all([
+      // Cases not created by self
+      Case.countDocuments({ ...caseWhere, createdAt: today, createdBy: { $ne: userId } }),
 
-      // New patient records today (scoped via case chain)
-      Patient.countDocuments({
-        caseId: { $in: scopedCaseIds },
-        createdAt: today,
-      }),
+      // Patients — for staff, only within their assigned cases; exclude self-created
+      Patient.countDocuments({ caseId: { $in: scopedCaseIds }, createdAt: today }),
 
-      // New animal records today (scoped via case chain)
-      Animal.countDocuments({
-        caseId: { $in: scopedCaseIds },
-        createdAt: today,
-      }),
+      // Animals not created by self
+      Animal.countDocuments({ caseId: { $in: scopedCaseIds }, createdAt: today, createdBy: { $ne: userId } }),
 
-      // New vaccination records today (scoped via patient chain)
-      Vaccination.countDocuments({
-        patientId: { $in: scopedPatientIds },
-        createdAt: today,
-      }),
+      // Vaccinations not created by self
+      Vaccination.countDocuments({ patientId: { $in: scopedPatientIds }, createdAt: today, createdBy: { $ne: userId } }),
 
-      // New users today — admin only, staff gets 0
-      req.user.role === 'admin'
-        ? User.countDocuments({ createdAt: today })
-        : Promise.resolve(0),
+      // New users — admin only
+      isAdmin ? User.countDocuments({ createdAt: today }) : Promise.resolve(0),
     ]);
 
     res.status(200).json({
-      cases:        newCases,
-      patients:     newPatients,
-      animals:      newAnimals,
-      vaccinations: newVaccinations,
-      users:        newUsers,
+      cases: newCases, patients: newPatients, animals: newAnimals,
+      vaccinations: newVaccinations, users: newUsers,
     });
   } catch (error) {
     console.error('[notifications] getNotificationCounts error:', error.message);
