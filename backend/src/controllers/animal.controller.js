@@ -1,6 +1,7 @@
 const Animal = require('../models/animal.model');
 const logActivity = require('../utils/logActivity');
 const Case   = require('../models/case.model');
+const { pushToUsers, getConnectedAdminIds } = require('./notifications.controller');
 
 exports.getAllAnimals = async (req, res) => {
   try {
@@ -84,6 +85,14 @@ exports.createAnimal = async (req, res) => {
       remarks: remarks || null,
       createdBy: req.user.id,
     });
+
+     try {
+      const adminIds  = getConnectedAdminIds();
+      const staffId   = linkedCase?.assignedTo?.toString();
+      const notifyIds = [...new Set([...adminIds, ...(staffId ? [staffId] : [])])];
+      pushToUsers(notifyIds, { type: 'new_record', module: 'animals', message: 'New animal record created' });
+    } catch (e) { console.error('[SSE] push error:', e.message); }
+
 
       
 

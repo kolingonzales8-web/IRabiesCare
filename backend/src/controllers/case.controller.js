@@ -3,6 +3,8 @@ const logActivity          = require('../utils/logActivity');
 const { cloudinary }       = require('../config/cloudinary');
 const sendPushNotification = require('../utils/sendPushNotification');
 const User                 = require('../models/user.model');
+const { pushToUsers, getConnectedAdminIds } = require('./notifications.controller');
+
 
 // Human-readable status messages for patients
 const STATUS_MESSAGES = {
@@ -112,9 +114,16 @@ exports.createCase = async (req, res) => {
       patientUserId: req.user.role === 'user' ? req.user.id : null,
     });
     
-
+    
     // ✅ ADD THIS
     console.log('=== createCase SUCCESS ===', newCase.caseId);
+
+    try {
+      const adminIds  = getConnectedAdminIds();
+      const staffId   = newCase.assignedTo?.toString();
+      const notifyIds = [...new Set([...adminIds, ...(staffId ? [staffId] : [])])];
+      pushToUsers(notifyIds, { type: 'new_record', module: 'cases', message: 'New case registered' });
+    } catch (e) { console.error('[SSE] push error:', e.message); }
 
     await logActivity({
       action: 'CREATE', module: 'Case',

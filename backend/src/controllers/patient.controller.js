@@ -1,6 +1,7 @@
 const Patient = require('../models/patient.model');
 const logActivity = require('../utils/logActivity'); 
 const Case    = require('../models/case.model');
+const { pushToUsers, getConnectedAdminIds } = require('./notifications.controller');
 
 // Get all patients — scoped by role
 exports.getAllPatients = async (req, res) => {
@@ -66,6 +67,14 @@ exports.createPatient = async (req, res) => {
       woundCategory, patientStatus,
       doses: doses || [], nextSchedule: nextSchedule || null, caseOutcome,
     });
+
+     try {
+      const adminIds  = getConnectedAdminIds();
+      const assignedCase = await Case.findById(caseId).select('assignedTo');
+      const staffId   = assignedCase?.assignedTo?.toString();
+      const notifyIds = [...new Set([...adminIds, ...(staffId ? [staffId] : [])])];
+      pushToUsers(notifyIds, { type: 'new_record', module: 'patients', message: 'New patient record created' });
+    } catch (e) { console.error('[SSE] push error:', e.message); }
     
 
       await logActivity({

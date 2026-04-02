@@ -3,6 +3,7 @@ const User        = require('../models/user.model');
 const jwt         = require('jsonwebtoken');
 const logActivity = require('../utils/logActivity');
 const sendEmail   = require('../utils/sendEmail');
+const { pushToUsers, getConnectedAdminIds } = require('./notifications.controller');
 
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
@@ -23,6 +24,13 @@ exports.register = async (req, res) => {
     user.isOnline = true;
     user.lastSeen = new Date();
     await user.save();
+
+    try {
+      const adminIds = getConnectedAdminIds();
+      pushToUsers(adminIds, { type: 'new_record', module: 'users', message: 'New user registered' });
+    } catch (e) { console.error('[SSE] push error:', e.message); }
+
+    
 
     const token = generateToken(user._id);
 

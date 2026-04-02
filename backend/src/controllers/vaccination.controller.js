@@ -4,6 +4,7 @@ const Case                 = require('../models/case.model');
 const logActivity = require('../utils/logActivity');
 const User                 = require('../models/user.model');
 const sendPushNotification = require('../utils/sendPushNotification');
+const { pushToUsers, getConnectedAdminIds } = require('./notifications.controller');
 
 const resolveStatus = (data, providedStatus) => {
   if (!data) return providedStatus || 'Ongoing';
@@ -267,6 +268,15 @@ exports.createVaccination = async (req, res) => {
       rigDosage:           rigGiven ? rigDosage           : null,
       manufacturer, vaccineStockUsed, status: autoStatus, createdBy: req.user.id,
     });
+
+     try {
+      const adminIds     = getConnectedAdminIds();
+      const linkedPatient = await Patient.findById(patientId).select('caseId');
+      const linkedCase   = await Case.findById(linkedPatient?.caseId).select('assignedTo');
+      const staffId      = linkedCase?.assignedTo?.toString();
+      const notifyIds    = [...new Set([...adminIds, ...(staffId ? [staffId] : [])])];
+      pushToUsers(notifyIds, { type: 'new_record', module: 'vaccinations', message: 'New vaccination record created' });
+    } catch (e) { console.error('[SSE] push error:', e.message); }
     
 
     await logActivity({
