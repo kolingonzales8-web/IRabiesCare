@@ -1,6 +1,8 @@
-const Patient = require('../models/patient.model');
-const logActivity = require('../utils/logActivity'); 
-const Case    = require('../models/case.model');
+const Patient      = require('../models/patient.model');
+const logActivity  = require('../utils/logActivity'); 
+const Case         = require('../models/case.model');
+const User         = require('../models/user.model');         // ← ADD
+const Notification = require('../models/notification.model'); // ← ADD
 const { pushToUsers, getConnectedAdminIds } = require('./notifications.controller');
 
 // Get all patients — scoped by role
@@ -68,7 +70,6 @@ exports.createPatient = async (req, res) => {
       doses: doses || [], nextSchedule: nextSchedule || null, caseOutcome,
     });
 
-    const Notification = require('../models/notification.model');
 
       const adminUsers = await User.find({ role: 'admin' }).select('_id');
       await Notification.create({
@@ -77,7 +78,7 @@ exports.createPatient = async (req, res) => {
         createdBy: req.user.name,
         recipients: adminUsers.map(u => u._id),
       });
-      
+
      try {
       const adminIds  = getConnectedAdminIds();
       const assignedCase = await Case.findById(caseId).select('assignedTo');
