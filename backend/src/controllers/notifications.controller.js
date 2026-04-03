@@ -3,15 +3,11 @@ const Patient     = require('../models/patient.model');
 const Animal      = require('../models/animal.model');
 const Vaccination = require('../models/vaccination.model');
 const User        = require('../models/user.model');
+const Notification = require('../models/notification.model'); // ← MOVED HERE
 
 // ── In-memory SSE client registry ────────────────────────────────────────────
-// Map of userId (string) → { res, user }
 const clients = new Map();
 
-/**
- * GET /api/notifications/stream
- * Opens a persistent SSE connection for real-time badge updates.
- */
 exports.streamNotifications = (req, res) => {
   res.setHeader('Content-Type',  'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -21,10 +17,8 @@ exports.streamNotifications = (req, res) => {
   const userId = req.user.id.toString();
   clients.set(userId, { res, user: req.user });
 
-  // Initial ping
   res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
 
-  // Heartbeat every 25s to survive proxy timeouts
   const heartbeat = setInterval(() => {
     res.write(': heartbeat\n\n');
   }, 25_000);
@@ -38,13 +32,6 @@ exports.streamNotifications = (req, res) => {
   console.log(`[SSE] Client connected: ${userId} (${req.user.role})`);
 };
 
-/**
- * Push a notification event to specific users by their IDs.
- * Called internally from other controllers after create/assign actions.
- *
- * @param {string[]} userIds  - Who to notify
- * @param {object}   payload  - { type, module, message }
- */
 exports.pushToUsers = (userIds, payload) => {
   const data = JSON.stringify(payload);
   userIds.forEach(uid => {
@@ -55,9 +42,6 @@ exports.pushToUsers = (userIds, payload) => {
   });
 };
 
-/**
- * Helper: get all connected admin user IDs.
- */
 exports.getConnectedAdminIds = () => {
   const adminIds = [];
   clients.forEach((client, uid) => {
@@ -66,10 +50,6 @@ exports.getConnectedAdminIds = () => {
   return adminIds;
 };
 
-/**
- * GET /api/notifications/counts
- * Initial hydration on page load — scoped counts, excludes self-created records.
- */
 exports.getNotificationCounts = async (req, res) => {
   try {
     const startOfDay = new Date();
@@ -81,8 +61,6 @@ exports.getNotificationCounts = async (req, res) => {
     const userId  = req.user.id;
     const isAdmin = req.user.role === 'admin';
 
-    // Staff: only cases assigned to them
-    // Admin: all cases
     const caseWhere = isAdmin ? {} : { assignedTo: userId };
 
     const scopedCases      = await Case.find(caseWhere).select('_id');
@@ -91,19 +69,10 @@ exports.getNotificationCounts = async (req, res) => {
     const scopedPatientIds = scopedPatients.map(p => p._id);
 
     const [newCases, newPatients, newAnimals, newVaccinations, newUsers] = await Promise.all([
-      // Cases not created by self
       Case.countDocuments({ ...caseWhere, createdAt: today, createdBy: { $ne: userId } }),
-
-      // Patients — for staff, only within their assigned cases; exclude self-created
       Patient.countDocuments({ caseId: { $in: scopedCaseIds }, createdAt: today }),
-
-      // Animals not created by self
       Animal.countDocuments({ caseId: { $in: scopedCaseIds }, createdAt: today, createdBy: { $ne: userId } }),
-
-      // Vaccinations not created by self
       Vaccination.countDocuments({ patientId: { $in: scopedPatientIds }, createdAt: today, createdBy: { $ne: userId } }),
-
-      // New users — admin only
       isAdmin ? User.countDocuments({ createdAt: today }) : Promise.resolve(0),
     ]);
 
@@ -117,11 +86,17 @@ exports.getNotificationCounts = async (req, res) => {
   }
 };
 
-const Notification = require('../models/notification.model');
-
+// ── GET /api/notifications — scoped by role ───────────────────────────────────
 exports.getNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find()
+    const userId  = req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    const query = isAdmin
+      ? {}
+      : { recipients: userId };
+
+    const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
       .limit(50);
     res.status(200).json(notifications);
@@ -130,6 +105,7 @@ exports.getNotifications = async (req, res) => {
   }
 };
 
+// ── PATCH /api/notifications/read-all ────────────────────────────────────────
 exports.markAllRead = async (req, res) => {
   try {
     await Notification.updateMany({ isRead: false }, { isRead: true });

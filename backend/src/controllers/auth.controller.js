@@ -20,13 +20,13 @@ exports.register = async (req, res) => {
     const user = await User.create({ name, email, password });
 
     const Notification = require('../models/notification.model');
+   const adminUsers = await User.find({ role: 'admin' }).select('_id');
     await Notification.create({
       type: 'user',
       message: `New user registered: ${name}`,
       createdBy: name,
+      recipients: adminUsers.map(u => u._id),
     });
-    const io = req.app.get('io');
-    if (io) io.emit('new_notification', { type: 'user', message: `New user registered: ${name}`, createdBy: name });
         
 
     user.isOnline = true;

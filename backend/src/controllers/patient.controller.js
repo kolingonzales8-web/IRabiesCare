@@ -69,14 +69,15 @@ exports.createPatient = async (req, res) => {
     });
 
     const Notification = require('../models/notification.model');
+
+      const adminUsers = await User.find({ role: 'admin' }).select('_id');
       await Notification.create({
         type: 'patient',
         message: `New patient record created for ${linkedCase.fullName}`,
         createdBy: req.user.name,
+        recipients: adminUsers.map(u => u._id),
       });
-      const io = req.app.get('io');
-      if (io) io.emit('new_notification', { type: 'patient', message: `New patient record created for ${linkedCase.fullName}`, createdBy: req.user.name });
-
+      
      try {
       const adminIds  = getConnectedAdminIds();
       const assignedCase = await Case.findById(caseId).select('assignedTo');

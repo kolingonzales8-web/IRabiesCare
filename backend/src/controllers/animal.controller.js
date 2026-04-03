@@ -87,14 +87,14 @@ exports.createAnimal = async (req, res) => {
     });
 
     const Notification = require('../models/notification.model');
-    await Notification.create({
-      type: 'animal',
-      message: `New animal record created for Case #${linkedCase.caseId}`,
-      createdBy: req.user.name,
-    });
-    const io = req.app.get('io');
-    if (io) io.emit('new_notification', { type: 'animal', message: `New animal record created for Case #${linkedCase.caseId}`, createdBy: req.user.name });
-
+    const adminUsers = await User.find({ role: 'admin' }).select('_id');
+      await Notification.create({
+        type: 'animal',
+        message: `New animal record created for Case #${linkedCase.caseId}`,
+        createdBy: req.user.name,
+        recipients: adminUsers.map(u => u._id),
+      });
+      
      try {
       const adminIds  = getConnectedAdminIds();
       const staffId   = linkedCase?.assignedTo?.toString();

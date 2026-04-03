@@ -3,6 +3,7 @@ const logActivity          = require('../utils/logActivity');
 const { cloudinary }       = require('../config/cloudinary');
 const sendPushNotification = require('../utils/sendPushNotification');
 const User                 = require('../models/user.model');
+const Notification = require('../models/notification.model');
 const { pushToUsers, getConnectedAdminIds } = require('./notifications.controller');
 
 
@@ -115,14 +116,16 @@ exports.createCase = async (req, res) => {
     });
 
     const Notification = require('../models/notification.model');
-    await Notification.create({
-      type: 'case',
-      message: `New case registered for ${caseFields.fullName}`,
-      createdBy: req.user.name,
-    });
-    const io = req.app.get('io');
-    if (io) io.emit('new_notification', { type: 'case', message: `New case registered for ${caseFields.fullName}`, createdBy: req.user.name });
-    
+
+   const adminUsers = await User.find({ role: 'admin' }).select('_id');
+    const adminIds = adminUsers.map(u => u._id);
+
+  await Notification.create({
+    type: 'case',
+    message: `New case registered for ${caseFields.fullName}`,
+    createdBy: req.user.name,
+    recipients: adminIds, // only admins see this
+  });
     
     // ✅ ADD THIS
     console.log('=== createCase SUCCESS ===', newCase.caseId);
@@ -255,14 +258,23 @@ exports.updateCase = async (req, res) => {
       // ──────────────────────────────────────────────────────────────────────
     }
 
-    if (sanitized.assignedTo && sanitized.assignedTo !== oldAssigned) {
-      await logActivity({
-        action: 'ASSIGN', module: 'Case',
-        description: `Case #${caseItem.caseId} reassigned`,
-        user: req.user, targetId: caseItem._id,
-        targetName: `Case #${caseItem.caseId} - ${caseItem.fullName}`, req,
-      });
-    }
+   if (sanitized.assignedTo && sanitized.assignedTo !== oldAssigned) {
+  await logActivity({
+    action: 'ASSIGN', module: 'Case',
+    description: `Case #${caseItem.caseId} reassigned`,
+    user: req.user, targetId: caseItem._id,
+    targetName: `Case #${caseItem.caseId} - ${caseItem.fullName}`, req,
+  });
+
+  // Notify assigned staff
+  
+  await Notification.create({
+    type: 'case',
+    message: `You have been assigned to Case #${caseItem.caseId} - ${caseItem.fullName}`,
+    createdBy: req.user.name,
+    recipients: [sanitized.assignedTo],
+  });
+}
 
     if (!sanitized.status && !sanitized.assignedTo) {
       await logActivity({
