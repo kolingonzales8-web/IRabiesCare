@@ -19,6 +19,14 @@ exports.register = async (req, res) => {
 
     const user = await User.create({ name, email, password });
 
+    const Notification = require('../models/notification.model');
+    await Notification.create({
+      type: 'user',
+      message: `New user registered: ${name}`,
+      createdBy: name,
+    });
+    const io = req.app.get('io');
+    if (io) io.emit('new_notification', { type: 'user', message: `New user registered: ${name}`, createdBy: name });
         
 
     user.isOnline = true;

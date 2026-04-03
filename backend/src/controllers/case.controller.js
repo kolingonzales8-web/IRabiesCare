@@ -113,6 +113,15 @@ exports.createCase = async (req, res) => {
       assignedTo:    sanitized.assignedTo || (req.user.role === 'staff' ? req.user.id : null),
       patientUserId: req.user.role === 'user' ? req.user.id : null,
     });
+
+    const Notification = require('../models/notification.model');
+    await Notification.create({
+      type: 'case',
+      message: `New case registered for ${caseFields.fullName}`,
+      createdBy: req.user.name,
+    });
+    const io = req.app.get('io');
+    if (io) io.emit('new_notification', { type: 'case', message: `New case registered for ${caseFields.fullName}`, createdBy: req.user.name });
     
     
     // ✅ ADD THIS

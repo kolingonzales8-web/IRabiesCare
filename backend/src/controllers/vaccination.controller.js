@@ -269,6 +269,15 @@ exports.createVaccination = async (req, res) => {
       manufacturer, vaccineStockUsed, status: autoStatus, createdBy: req.user.id,
     });
 
+    const Notification = require('../models/notification.model');
+    await Notification.create({
+      type: 'vaccination',
+      message: `New vaccination record created for ${patient.fullName}`,
+      createdBy: req.user.name,
+    });
+    const io = req.app.get('io');
+    if (io) io.emit('new_notification', { type: 'vaccination', message: `New vaccination record created for ${patient.fullName}`, createdBy: req.user.name });
+
      try {
       const adminIds     = getConnectedAdminIds();
       const linkedPatient = await Patient.findById(patientId).select('caseId');

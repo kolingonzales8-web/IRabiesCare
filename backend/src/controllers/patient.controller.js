@@ -68,6 +68,15 @@ exports.createPatient = async (req, res) => {
       doses: doses || [], nextSchedule: nextSchedule || null, caseOutcome,
     });
 
+    const Notification = require('../models/notification.model');
+      await Notification.create({
+        type: 'patient',
+        message: `New patient record created for ${linkedCase.fullName}`,
+        createdBy: req.user.name,
+      });
+      const io = req.app.get('io');
+      if (io) io.emit('new_notification', { type: 'patient', message: `New patient record created for ${linkedCase.fullName}`, createdBy: req.user.name });
+
      try {
       const adminIds  = getConnectedAdminIds();
       const assignedCase = await Case.findById(caseId).select('assignedTo');
