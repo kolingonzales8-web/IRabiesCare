@@ -116,3 +116,25 @@ exports.getNotificationCounts = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+const Notification = require('../models/notification.model');
+
+exports.getNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find()
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.status(200).json(notifications);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.markAllRead = async (req, res) => {
+  try {
+    await Notification.updateMany({ isRead: false }, { isRead: true });
+    res.status(200).json({ message: 'All marked as read' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
