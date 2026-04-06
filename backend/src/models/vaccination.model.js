@@ -6,7 +6,7 @@ const vaccinationSchema = new mongoose.Schema({
 
   // Vaccine Details
   vaccineBrand:  { type: String, required: true },
-  injectionSite: { type: String, enum: ['Left Arm', 'Right Arm'], required: true },
+  injectionSite: { type: String, enum: ['Left Arm', 'Right Arm', 'Both Arms'], required: true },
 
   // WHO PEP Dose Schedule — administered dates
   day0:  { type: Date, default: null },
