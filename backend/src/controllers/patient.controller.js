@@ -16,9 +16,14 @@ exports.getAllPatients = async (req, res) => {
     const scopedCases = await Case.find(caseWhere).select('_id fullName contact caseId');
     const caseIds     = scopedCases.map(c => c._id);
 
+   // REPLACE WITH:
     const where = { caseId: { $in: caseIds } };
     if (status && status !== 'All') where.patientStatus = status;
     if (search) where.fullName = { $regex: search, $options: 'i' };
+
+    // ADD THESE TWO LINES:
+    if (req.query.woundCategory && req.query.woundCategory !== 'All') where.woundCategory = req.query.woundCategory;
+    if (req.query.caseOutcome && req.query.caseOutcome !== 'All') where.caseOutcome = req.query.caseOutcome;
 
     const total    = await Patient.countDocuments(where);
     const patients = await Patient.find(where)
