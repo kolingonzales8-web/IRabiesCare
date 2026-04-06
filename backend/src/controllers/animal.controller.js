@@ -1,6 +1,8 @@
-const Animal = require('../models/animal.model');
-const logActivity = require('../utils/logActivity');
-const Case   = require('../models/case.model');
+const Animal       = require('../models/animal.model');
+const logActivity  = require('../utils/logActivity');
+const Case         = require('../models/case.model');
+const User         = require('../models/user.model');         // ← ADD
+const Notification = require('../models/notification.model'); // ← ADD
 const { pushToUsers, getConnectedAdminIds } = require('./notifications.controller');
 
 exports.getAllAnimals = async (req, res) => {
@@ -86,7 +88,7 @@ exports.createAnimal = async (req, res) => {
       createdBy: req.user.id,
     });
 
-    const Notification = require('../models/notification.model');
+
     const adminUsers = await User.find({ role: 'admin' }).select('_id');
       await Notification.create({
         type: 'animal',
