@@ -22,11 +22,14 @@ exports.getAllCases = async (req, res) => {
 
     const where = req.user.role === 'admin' ? {} : { assignedTo: req.user.id };
 
-    if (unassigned === 'true') {
-      where.assignedTo = null;  // ✅ filter only unassigned
-    } else if (status && status !== 'All') {
-      where.status = status;    // ✅ only apply status filter when NOT filtering unassigned
-    }
+      if (unassigned === 'true') {
+        where.assignedTo = null;
+      } else if (status && status !== 'All') {
+        where.status = status;
+      }
+
+      
+      if (req.query.exposureType) where.exposureType = req.query.exposureType;
 
     if (search) {
       where.$or = [
