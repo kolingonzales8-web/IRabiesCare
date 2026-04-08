@@ -504,14 +504,23 @@ const EditPanel = ({ vaccinationId, onClose, onSaved }) => {
               <div className="grid grid-cols-2 gap-3.5">
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vaccine Brand</label>
-                  <input value={form.vaccineBrand} onChange={e => set('vaccineBrand')(e.target.value)} placeholder="e.g. Verorab, Speeda, Rabipur" className={inputCls} />
+                  <select value={form.vaccineBrand} onChange={e => set('vaccineBrand')(e.target.value)} className={`${inputCls} appearance-none`}>
+                  <option value="">— Select vaccine brand —</option>
+                  <option>Verorab</option>
+                  <option>Speeda</option>
+                  <option>Rabipur</option>
+                  <option>Imovax Rabies</option>
+                  <option>Abhayrab</option>
+                </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Injection Site</label>
                   <div className="relative">
-                    <select value={form.injectionSite} onChange={e => set('injectionSite')(e.target.value)} className={`${inputCls} appearance-none`}>
-                      <option>Left Arm</option><option>Right Arm</option>
-                    </select>
+                   <select value={form.injectionSite} onChange={e => set('injectionSite')(e.target.value)} className={`${inputCls} appearance-none`}>
+                    <option>Left Arm</option>
+                    <option>Right Arm</option>
+                    <option>Both Arms</option>
+                  </select>
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -574,11 +583,29 @@ const AddPanel = ({ onClose, onSaved }) => {
   const [doses, setDoses] = useState({ day0: { ...INITIAL_DOSE }, day3: { ...INITIAL_DOSE }, day7: { ...INITIAL_DOSE }, day14: { ...INITIAL_DOSE }, day28: { ...INITIAL_DOSE } });
 
   useEffect(() => {
-    apiClient.get('/patients', { params: { limit: 200 } })
-      .then(res => setPatients(res.data.patients || []))
-      .catch(err => setError(err.response?.data?.message || 'Failed to load patients'))
-      .finally(() => setLoadingPatients(false));
-  }, []);
+  Promise.all([
+    apiClient.get('/patients', { params: { limit: 200 } }),
+    apiClient.get('/vaccinations', { params: { limit: 200 } }),
+  ])
+    .then(([patientsRes, vaccinationsRes]) => {
+      const allPatients     = patientsRes.data.patients     || [];
+      const allVaccinations = vaccinationsRes.data.vaccinations || [];
+
+      // Get patientIds that already have a vaccination record
+      const usedPatientIds = new Set(
+        allVaccinations.map(v => v.patientRef?.toString())
+      );
+
+      // Filter out patients that already have a vaccination record
+      const available = allPatients.filter(
+        p => !usedPatientIds.has(p.id?.toString())
+      );
+
+      setPatients(available);
+    })
+    .catch(err => setError(err.response?.data?.message || 'Failed to load'))
+    .finally(() => setLoadingPatients(false));
+}, []);
 
   const set = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
   const updateDose = (key, field, val) => {
@@ -694,14 +721,23 @@ const AddPanel = ({ onClose, onSaved }) => {
   <div className="grid grid-cols-2 gap-3.5">
     <div className="col-span-2 space-y-1.5">
       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vaccine Brand <span className="text-red-400">*</span></label>
-      <input type="text" value={form.vaccineBrand} onChange={e => set('vaccineBrand')(e.target.value)} placeholder="e.g. Verorab, Speeda, Rabipur" className={inputCls} />
+      <select value={form.vaccineBrand} onChange={e => set('vaccineBrand')(e.target.value)} className={`${inputCls} appearance-none`}>
+  <option value="">— Select vaccine brand —</option>
+  <option>Verorab</option>
+  <option>Speeda</option>
+  <option>Rabipur</option>
+  <option>Imovax Rabies</option>
+  <option>Abhayrab</option>
+</select>
     </div>
     <div className="col-span-2 space-y-1.5">
       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Injection Site</label>
       <div className="relative">
-        <select value={form.injectionSite} onChange={e => set('injectionSite')(e.target.value)} className={`${inputCls} appearance-none`}>
-          <option>Left Arm</option><option>Right Arm</option>
-        </select>
+       <select value={form.injectionSite} onChange={e => set('injectionSite')(e.target.value)} className={`${inputCls} appearance-none`}>
+        <option>Left Arm</option>
+        <option>Right Arm</option>
+        <option>Both Arms</option>
+      </select>
       </div>
     </div>
   </div>

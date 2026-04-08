@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Plus, Search, Eye, Pencil, Trash2, RefreshCw, Download, Filter,
+  Plus, Search, Eye, Pencil, Trash2, RefreshCw, Download,
   Loader2, Calendar, UserRound, Zap, CheckCircle2, Clock,
   X, Save, ChevronDown, TrendingUp, User, Syringe, Activity,
 } from 'lucide-react';
@@ -174,9 +174,30 @@ const AddPanel = ({ onClose, onSaved }) => {
   const [form, setForm] = useState({ caseId: '', woundCategory: 'Category I', patientStatus: 'Pending', caseOutcome: 'Ongoing' });
   const set = k => v => setForm(p => ({ ...p, [k]: v }));
   const inp = "w-full appearance-none px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 bg-white";
+  
   useEffect(() => {
-    apiClient.get('/cases', { params: { limit: 200 } }).then(r => setCases(r.data.cases || [])).catch(() => {}).finally(() => setLoadingCases(false));
-  }, []);
+  Promise.all([
+    apiClient.get('/cases', { params: { limit: 200 } }),
+    apiClient.get('/patients', { params: { limit: 200 } }),
+  ])
+    .then(([casesRes, patientsRes]) => {
+      const allCases    = casesRes.data.cases       || [];
+      const allPatients = patientsRes.data.patients || [];
+
+      const usedCaseIds = new Set(
+        allPatients.map(p => p.caseId?.toString())
+      );
+
+      const available = allCases.filter(
+        c => !usedCaseIds.has(c.caseId?.toString())
+      );
+
+      setCases(available);
+    })
+    .catch(() => {})
+    .finally(() => setLoadingCases(false));
+}, []);
+
   const handleSubmit = async () => {
     setError(null);
     if (!form.caseId) return setError('Please select a linked case.');
@@ -246,6 +267,8 @@ export default function Patient() {
   const [stats, setStats]           = useState({ total: 0, ongoing: 0, completed: 0, pending: 0 });
   const [search, setSearch]         = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [outcomeFilter, setOutcomeFilter] = useState('All');
   const [page, setPage]             = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal]           = useState(0);
@@ -266,10 +289,17 @@ export default function Patient() {
   const fetchPatients = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getAllPatients({ page, limit: ITEMS_PER_PAGE, ...(statusFilter !== 'All' && { status: statusFilter }), ...(search && { search }) });
+      const res = await getAllPatients({
+  page,
+  limit: ITEMS_PER_PAGE,
+  ...(statusFilter !== 'All' && { status: statusFilter }),
+  ...(categoryFilter !== 'All' && { woundCategory: categoryFilter }),
+  ...(outcomeFilter !== 'All' && { caseOutcome: outcomeFilter }),
+  ...(search && { search }),
+});
       setPatients(res.data.patients || []); setTotal(res.data.total || 0); setTotalPages(res.data.totalPages || 1); setLastUpdated(new Date());
     } catch { } finally { setLoading(false); }
-  }, [page, statusFilter, search]);
+  }, [page, statusFilter, categoryFilter, outcomeFilter, search]);
 
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
@@ -350,26 +380,87 @@ export default function Patient() {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input type="text" placeholder="Search by patient name or case ID..." value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-slate-600">Status:</span>
-          {['All','Ongoing','Completed','Pending'].map(s => (
-            <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${statusFilter === s ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600'}`}>
-              {s}
-            </button>
-          ))}
-          <button className="flex items-center gap-1.5 px-4 py-2 border border-violet-200 text-violet-600 rounded-lg text-sm font-medium hover:bg-violet-50">
-            <Filter size={14} />More Filters
-          </button>
-        </div>
-      </div>
+     <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm flex flex-wrap items-center gap-3 border-b border-slate-100">
+
+  {/* Search */}
+  <div className="relative flex-1 min-w-[220px]">
+    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+    <input
+      type="text"
+      placeholder="Search by patient name or case ID..."
+      value={search}
+      onChange={e => { setSearch(e.target.value); setPage(1); }}
+      className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+    />
+  </div>
+
+  {/* Status Dropdown */}
+  <div className="relative">
+    <select
+      value={statusFilter}
+      onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+      className="appearance-none pl-3.5 pr-9 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+    >
+      <option value="All">All Status</option>
+      <option value="Pending">🟠 Pending</option>
+      <option value="Ongoing">🔵 Ongoing</option>
+      <option value="Completed">🟢 Completed</option>
+      <option value="Urgent">🔴 Urgent</option>
+    </select>
+    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+    {statusFilter !== 'All' && (
+      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white" />
+    )}
+  </div>
+
+  {/* Wound Category Dropdown */}
+  <div className="relative">
+    <select
+      value={categoryFilter}
+      onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}
+      className="appearance-none pl-3.5 pr-9 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+    >
+      <option value="All">All Categories</option>
+      <option value="Category I">🟢 Category I</option>
+      <option value="Category II">🟡 Category II</option>
+      <option value="Category III">🔴 Category III</option>
+    </select>
+    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+    {categoryFilter !== 'All' && (
+      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-violet-500 border-2 border-white" />
+    )}
+  </div>
+
+  {/* Case Outcome Dropdown */}
+  <div className="relative">
+    <select
+      value={outcomeFilter}
+      onChange={e => { setOutcomeFilter(e.target.value); setPage(1); }}
+      className="appearance-none pl-3.5 pr-9 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+    >
+      <option value="All">All Outcomes</option>
+      <option value="Ongoing">🔵 Ongoing</option>
+      <option value="Recovered">🟢 Recovered</option>
+      <option value="Deceased">⚫ Deceased</option>
+      <option value="Lost to Follow-up">🟣 Lost to Follow-up</option>
+    </select>
+    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+    {outcomeFilter !== 'All' && (
+      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-orange-500 border-2 border-white" />
+    )}
+  </div>
+
+  {/* Clear Filters */}
+  {(statusFilter !== 'All' || categoryFilter !== 'All' || outcomeFilter !== 'All' || search) && (
+    <button
+      onClick={() => { setSearch(''); setStatusFilter('All'); setCategoryFilter('All'); setOutcomeFilter('All'); setPage(1); }}
+      className="flex items-center gap-1.5 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all"
+    >
+      <X size={13} /> Clear Filters
+    </button>
+  )}
+
+</div>
 
       {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">

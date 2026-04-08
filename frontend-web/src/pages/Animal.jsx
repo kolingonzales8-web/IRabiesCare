@@ -553,12 +553,30 @@ const AddPanel = ({ onClose, onSaved }) => {
   const [submitting, setSubmitting]     = useState(false);
   const [error, setError]               = useState(null);
 
-  useEffect(() => {
-    apiClient.get('/cases', { params: { limit: 10000 } })
-      .then(res => setCases(res.data.cases || res.data || []))
-      .catch(err => setError(err.response?.data?.message || 'Failed to load cases'))
-      .finally(() => setLoadingCases(false));
-  }, []);
+ useEffect(() => {
+  Promise.all([
+    apiClient.get('/cases', { params: { limit: 10000 } }),
+    apiClient.get('/animals', { params: { limit: 10000 } }),
+  ])
+    .then(([casesRes, animalsRes]) => {
+      const allCases   = casesRes.data.cases     || casesRes.data || [];
+      const allAnimals = animalsRes.data.animals || [];
+
+      // Get caseRefs that already have an animal record
+      const usedCaseRefs = new Set(
+        allAnimals.map(a => a.caseRef?.toString())
+      );
+
+      // Filter out cases that already have an animal record
+      const available = allCases.filter(
+        c => !usedCaseRefs.has(c.id?.toString())
+      );
+
+      setCases(available);
+    })
+    .catch(err => setError(err.response?.data?.message || 'Failed to load cases'))
+    .finally(() => setLoadingCases(false));
+}, []);
 
   const set = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
 

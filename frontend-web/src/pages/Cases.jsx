@@ -11,6 +11,8 @@ import apiClient from '../api/client';
 import useAuthStore from '../store/authStore';
 import { BOHOL_DATA, MUNICIPALITIES } from '../constants/bohol';
 import { exportCases } from '../utils/exportToExcel';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 /* ─────────────────────────────────────
    Shared configs & constants
@@ -160,6 +162,99 @@ const ViewPanel = ({ caseId, onClose, onEdit }) => {
 
   const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : '—';
 
+  const handleExportPDF = async () => {
+  const element = document.getElementById('case-detail-content');
+  if (!element) return;
+
+  // Pre-load all images inside the element first
+  const images = element.querySelectorAll('img');
+  await Promise.all(
+    Array.from(images).map(
+      img =>
+        new Promise(resolve => {
+          if (img.complete) resolve();
+          else {
+            img.onload = resolve;
+            img.onerror = resolve; // still resolve so we don't hang
+          }
+        })
+    )
+  );
+
+  // Save original styles
+  const originalOverflow = element.style.overflow;
+  const originalMaxHeight = element.style.maxHeight;
+  const originalHeight = element.style.height;
+
+  // Expand to full scroll height
+  element.style.overflow = 'visible';
+  element.style.maxHeight = 'none';
+  element.style.height = element.scrollHeight + 'px';
+
+  // Wait for layout + image paint to settle
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  try {
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      scrollX: 0,
+      scrollY: -window.scrollY,
+      width: element.scrollWidth,
+      height: element.scrollHeight,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: element.scrollHeight,
+      imageTimeout: 15000,
+      onclone: (clonedDoc) => {
+        // Make sure the cloned element is also fully expanded
+        const cloned = clonedDoc.getElementById('case-detail-content');
+        if (cloned) {
+          cloned.style.overflow = 'visible';
+          cloned.style.maxHeight = 'none';
+          cloned.style.height = 'auto';
+        }
+        // Also expand any nested scrollable containers
+        const allScrollable = clonedDoc.querySelectorAll('[style*="overflow"]');
+        allScrollable.forEach(el => {
+          el.style.overflow = 'visible';
+          el.style.maxHeight = 'none';
+        });
+      },
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pdfWidth;
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pdfHeight;
+
+    while (heightLeft > 0) {
+      position -= pdfHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+    }
+
+    pdf.save(`Case-${data.caseId}-${data.fullName?.replace(/\s+/g, '-')}.pdf`);
+  } finally {
+    // Always restore original styles
+    element.style.overflow = originalOverflow;
+    element.style.maxHeight = originalMaxHeight;
+    element.style.height = originalHeight;
+  }
+};
+
+
   return (
     <PanelShell width="max-w-2xl" onBackdropClick={onClose}>
       {/* Top accent */}
@@ -182,16 +277,24 @@ const ViewPanel = ({ caseId, onClose, onEdit }) => {
         {data && (
           <div className="flex items-center gap-2.5">
             <PanelStatusBadge status={data.status} />
+
+            <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-all hover:-translate-y-0.5 shadow-sm">
+            <Download size={13} /> Export PDF
+          </button>
+
             <button onClick={() => onEdit(caseId)}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-all hover:-translate-y-0.5 shadow-sm">
               <Pencil size={13} /> Edit
             </button>
+
           </div>
         )}
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto bg-slate-50/60">
+      <div id="case-detail-content" className="flex-1 overflow-y-auto bg-slate-50/60">
         {loading && (
           <div className="flex flex-col items-center justify-center h-48">
             <div className="w-9 h-9 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -306,6 +409,39 @@ const ViewPanel = ({ caseId, onClose, onEdit }) => {
               </div>
             </div>
 
+
+            {/* Assigned To */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2.5 px-5 py-3 bg-purple-50 border-b border-purple-100">
+              <UserCheck size={14} className="text-purple-600" />
+              <span className="text-xs font-bold text-purple-700 uppercase tracking-wide">Assigned Staff</span>
+            </div>
+            <div className="px-5 py-4 grid grid-cols-2 gap-4">
+              <InfoRow label="Assigned To">
+              {data.assignedTo ? (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+                    <UserCheck size={11} className="text-purple-600" />
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">
+                    {data.assignedTo?.name || '—'}
+                  </span>
+                </div>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-600 border border-orange-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                  Unassigned
+                </span>
+              )}
+            </InfoRow>
+            <InfoRow label="Staff Role">
+              <span className="text-sm font-semibold text-slate-700 capitalize">
+                {data.assignedTo?.role || '—'}
+              </span>
+            </InfoRow>
+            </div>
+          </div>
+
             {/* Document */}
             {data.documentUrl && (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -380,7 +516,7 @@ const EditPanel = ({ caseId, onClose, onSaved, staffList, user }) => {
           woundWashed:      c.woundWashed || '',
           numberOfWounds:   c.numberOfWounds || '',
           status:           c.status || 'Pending',
-          assignedTo:       c.assignedTo || '',
+          assignedTo: c.assignedTo?._id || c.assignedTo?.id || c.assignedTo || '',
         });
       })
       .catch(err => setError(err.response?.data?.message || 'Failed to load'))
@@ -438,7 +574,7 @@ const EditPanel = ({ caseId, onClose, onSaved, staffList, user }) => {
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto bg-slate-50/60">
+      <div id="case-detail-content" className="flex-1 overflow-y-auto bg-slate-50/60">
         {loading && (
           <div className="flex flex-col items-center justify-center h-48">
             <div className="w-9 h-9 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-3" />
@@ -492,10 +628,10 @@ const EditPanel = ({ caseId, onClose, onSaved, staffList, user }) => {
                   </IconSelect>
                 </FormField>
                 <FormField label="Contact Number">
-                  <IconInput icon={Phone} iconColor="#94a3b8" type="text" value={form.contact} onChange={e => set('contact')(e.target.value)} placeholder="09XX-XXX-XXXX" />
+                  <IconInput icon={Phone} iconColor="#94a3b8" type="text" value={form.contact} onChange={e => set('contact')(e.target.value.replace(/\D/g, '').slice(0,11))} placeholder="09XXXXXXXXX" />
                 </FormField>
                 <FormField label="Email">
-                  <input type="email" value={form.email} onChange={e => set('email')(e.target.value)} placeholder="email@gmail.com" className={inputCls} />
+                  <input type="email" value={form.email} onChange={e => set('email')(e.target.value.trim())} placeholder="email@gmail.com" className={inputCls} />
                 </FormField>
                 <div className="col-span-2">
                   <FormField label="Address">
@@ -676,12 +812,31 @@ const AddPanel = ({ onClose, onSaved, staffList }) => {
     return setError('Please enter the full address.');
   if (form.municipality !== 'Others (Outside Bohol)' && !form.barangay)
     return setError('Please select a barangay.');
-  if (!form.contact)
-    return setError('Please enter a contact number.');
+
+  // Contact number validation: digits only, exactly 11 chars
+  const contactDigits = (form.contact || '').replace(/\D/g, '');
+  if (!contactDigits || contactDigits.length !== 11)
+    return setError('Contact number must contain exactly 11 digits and numbers only.');
+
+  // Email validation
+  if (!form.email)
+    return setError('Please enter an email address.');
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(form.email))
+    return setError('Please enter a valid email address.');
+
+  const normalizedContact = contactDigits;
 
   // Exposure validation
-  if (!form.exposureType || !form.dateOfExposure || !form.timeOfExposure || !form.location)
-    return setError('Please fill in all exposure fields.');
+    if (!form.exposureType)
+      return setError('Please select an exposure type (Bite, Scratch, or Lick on Broken Skin).');
+    if (!form.dateOfExposure)
+      return setError('Please enter the date of exposure.');
+    if (!form.timeOfExposure)
+      return setError('Please enter the time of exposure.');
+    if (!form.location)
+      return setError('Please enter the location of the incident.');
+
 
   // Animal validation
   if (!form.animalInvolved || !form.animalStatus)
@@ -712,7 +867,7 @@ const AddPanel = ({ onClose, onSaved, staffList }) => {
     formData.append('age',            String(Number(form.age)));
     formData.append('sex',            form.sex);
     formData.append('address',        form.address);
-    formData.append('contact',        form.contact);
+    formData.append('contact',        normalizedContact);
     formData.append('exposureType',   form.exposureType);
     formData.append('dateOfExposure', form.dateOfExposure);
     formData.append('timeOfExposure', form.timeOfExposure);
@@ -772,7 +927,7 @@ const AddPanel = ({ onClose, onSaved, staffList }) => {
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto bg-slate-50/60">
+      <div id="case-detail-content" className="flex-1 overflow-y-auto bg-slate-50/60">
         <div className="px-6 py-5 space-y-5">
 
           {error && (
@@ -832,11 +987,11 @@ const AddPanel = ({ onClose, onSaved, staffList }) => {
       </IconSelect>
     </FormField>
     <FormField label="Contact Number" required>
-      <IconInput icon={Phone} iconColor="#94a3b8" type="text" value={form.contact} onChange={e => set('contact')(e.target.value)} placeholder="09XX-XXX-XXXX" />
+      <IconInput icon={Phone} iconColor="#94a3b8" type="text" value={form.contact} onChange={e => set('contact')(e.target.value.replace(/\D/g, '').slice(0, 11))} placeholder="09XX-XXX-XXXX" />
     </FormField>
     <div className="col-span-2">
       <FormField label="Email Address">
-        <input type="email" value={form.email} onChange={e => set('email')(e.target.value)} placeholder="email@gmail.com " className={inputCls} />
+        <input type="email" value={form.email} onChange={e => set('email')(e.target.value.trim())} placeholder="email@gmail.com " className={inputCls} />
       </FormField>
     </div>
 
@@ -1219,6 +1374,7 @@ export default function Cases() {
   const [stats, setStats]           = useState({ total: 0, ongoing: 0, completed: 0, pending: 0 });
   const [search, setSearch]         = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [exposureFilter, setExposureFilter] = useState('All');
   const [page, setPage]             = useState(1);
   const [staffList, setStaffList]   = useState([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -1234,18 +1390,65 @@ export default function Cases() {
   const [editId, setEditId]   = useState(null);
   const [addOpen, setAddOpen] = useState(false);
 
+  // ✅ ADDED: Track seen cases in localStorage (for new badge)
+  const [seenCaseIds, setSeenCaseIds] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('seenCaseIds') || '[]'));
+    } catch { 
+      return new Set(); 
+    }
+  });
+
+  // ✅ ADDED: Helper: Check if case is new (created within last 24h AND not seen)
+  const isNewCase = (caseItem) => {
+    if (seenCaseIds.has(caseItem.id)) return false;
+    const created = new Date(caseItem.createdAt);
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    return created > oneDayAgo;
+  };
+
+  // ✅ ADDED: Helper: Mark case as seen
+  const markCaseAsSeen = (caseId) => {
+    setSeenCaseIds(prev => {
+      const updated = new Set([...prev, caseId]);
+      localStorage.setItem('seenCaseIds', JSON.stringify([...updated]));
+      return updated;
+    });
+    // Dispatch event to update badge
+    window.dispatchEvent(new CustomEvent('caseBadgeUpdate'));
+    if (window.refreshNavCounts) {
+      window.refreshNavCounts();
+    }
+  };
+
+  // ✅ ADDED: Count of unseen new cases
+  const newCasesCount = cases.filter(c => isNewCase(c)).length;
+
+  // ✅ ADDED: Expose for nav badge
+  useEffect(() => {
+    window.__newCasesCount = newCasesCount;
+    window.dispatchEvent(new CustomEvent('newCasesCountUpdate', { detail: newCasesCount }));
+  }, [newCasesCount]);
+
   const closeAll = () => { setViewId(null); setEditId(null); setAddOpen(false); };
 
   const fetchCases = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       const params = {
-        page,
-        limit: ITEMS_PER_PAGE,
-        ...(statusFilter !== 'All' && statusFilter !== 'Unassigned' && { status: statusFilter }),
-        ...(statusFilter === 'Unassigned' && { unassigned: true }),
-        ...(search && { search }),
-      };
+          page,
+          limit: ITEMS_PER_PAGE,
+          ...(search && { search }),
+        };
+
+        if (statusFilter === 'Unassigned') {
+          params.unassigned = 'true';  
+        } else if (statusFilter !== 'All') {
+          params.status = statusFilter;
+        }
+
+        if (exposureFilter !== 'All') params.exposureType = exposureFilter;
+
       const res = await getAllCases(params);
       setCases(res.data.cases);
       setTotal(res.data.total);
@@ -1256,7 +1459,7 @@ export default function Cases() {
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter, search]);
+  }, [page, statusFilter, exposureFilter, search]);
 
   const fetchStats = useCallback(async () => {
     try { const res = await getCaseStats(); setStats(res.data); } catch {}
@@ -1293,6 +1496,7 @@ export default function Cases() {
 
   const handleSearch       = (val) => { setSearch(val); setPage(1); };
   const handleStatusFilter = (val) => { setStatusFilter(val); setPage(1); };
+  const handleExposureFilter = (val) => { setExposureFilter(val); setPage(1); };
 
   const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—';
 
@@ -1374,31 +1578,78 @@ export default function Cases() {
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
 
         {/* Filter Bar */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm flex flex-wrap items-center gap-3 border-b border-slate-100">
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input type="text" placeholder="Search by patient name or case ID..." value={search}
-              onChange={e => { handleSearch(e.target.value); }}
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-slate-600">Status:</span>
-            {['All', 'Ongoing', 'Completed', 'Pending'].map(s => (
-              <button key={s} onClick={() => { handleStatusFilter(s); }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${statusFilter === s ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600'}`}>
-                {s}
-              </button>
-            ))}
-            {user?.role === 'admin' && (
-              <button onClick={() => handleStatusFilter('Unassigned')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${statusFilter === 'Unassigned' ? 'bg-orange-500 text-white shadow-sm' : 'bg-orange-50 border border-orange-200 text-orange-600 hover:border-orange-400'}`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                Unassigned
-              </button>
-            )}
-          </div>
-        </div>
+        <div className="bg-white p-4 flex flex-wrap items-center gap-3 border-b border-slate-100">
+  
+  {/* Search */}
+  <div className="relative flex-1 min-w-[220px]">
+    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+    <input
+      type="text"
+      placeholder="Search by patient name or case ID..."
+      value={search}
+      onChange={e => handleSearch(e.target.value)}
+      className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+    />
+  </div>
 
+  {/* Status Dropdown */}
+  <div className="relative">
+    <select
+      value={statusFilter}
+      onChange={e => handleStatusFilter(e.target.value)}
+      className="appearance-none pl-3.5 pr-9 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+    >
+      <option value="All">All Status</option>
+      <option value="Pending">🟠 Pending</option>
+      <option value="Ongoing">🔵 Ongoing</option>
+      <option value="Completed">🟢 Completed</option>
+      <option value="Urgent">🔴 Urgent</option>
+      {user?.role === 'admin' && <option value="Unassigned">⚪ Unassigned</option>}
+    </select>
+    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+    {statusFilter !== 'All' && (
+      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white" />
+    )}
+  </div>
+
+  {/* Exposure Type Dropdown */}
+  <div className="relative">
+    <select
+      value={exposureFilter}
+      onChange={e => handleExposureFilter(e.target.value)}
+      className="appearance-none pl-3.5 pr-9 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+    >
+      <option value="All">All Exposure Types</option>
+      <option value="Bite">🦷 Bite</option>
+      <option value="Scratch">💢 Scratch</option>
+      <option value="Lick on Broken Skin">💧 Lick on Broken Skin</option>
+    </select>
+    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+    {exposureFilter !== 'All' && (
+      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-orange-500 border-2 border-white" />
+    )}
+  </div>
+
+  {/* Clear Filters */}
+  {(statusFilter !== 'All' || exposureFilter !== 'All' || search) && (
+    <button
+      onClick={() => { handleSearch(''); handleStatusFilter('All'); handleExposureFilter('All'); }}
+      className="flex items-center gap-1.5 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all"
+    >
+      <X size={13} /> Clear Filters
+    </button>
+  )}
+
+  {/* New Cases Badge */}
+  {newCasesCount > 0 && (
+    <div className="ml-auto flex items-center gap-2">
+      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-600 border border-red-200">
+        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+        {newCasesCount} new case{newCasesCount !== 1 ? 's' : ''}
+      </span>
+    </div>
+  )}
+</div>
         {/* Table Content */}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
@@ -1414,24 +1665,70 @@ export default function Cases() {
                   <tr><td colSpan={6} className="py-16 text-center"><Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-blue-400" /><p className="text-sm text-slate-400">Loading cases...</p></td></tr>
                 ) : cases.length === 0 ? (
                   <tr><td colSpan={6} className="py-16 text-center"><ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-10" /><p className="text-sm text-slate-400 font-medium">No cases found</p></td></tr>
-                ) : cases.map((c, i) => (
-                  <tr key={c.id} className={`border-b border-slate-100 hover:bg-blue-50/50 transition-colors ${i % 2 === 1 ? 'bg-blue-50/20' : 'bg-white'}`}>
-                    <td className="px-5 py-4"><span className="font-bold text-blue-600 text-sm">#{c.caseId}</span></td>
-                    <td className="px-5 py-4"><p className="font-semibold text-slate-800 text-sm">{c.fullName}</p></td>
-                    <td className="px-5 py-4"><ExposureBadge type={c.exposureType} /></td>
-                    <td className="px-5 py-4"><StatusBadge status={c.status} /></td>
-                    <td className="px-5 py-4 text-slate-500 text-sm whitespace-nowrap">{formatDate(c.dateOfExposure)}</td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <button onClick={() => { closeAll(); setViewId(viewId === c.id ? null : c.id); }}
-                          className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${viewId === c.id ? 'bg-blue-600 border-blue-600 text-white' : 'bg-blue-50 border-blue-100 text-blue-500 hover:bg-blue-100'}`}><Eye size={13} /></button>
-                        <button onClick={() => { closeAll(); setEditId(editId === c.id ? null : c.id); }}
-                          className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${editId === c.id ? 'bg-amber-500 border-amber-500 text-white' : 'bg-amber-50 border-amber-100 text-amber-500 hover:bg-amber-100'}`}><Pencil size={13} /></button>
-                        <button onClick={() => setDeleteId(c.id)} className="w-8 h-8 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center text-red-400 hover:bg-red-100 transition-colors"><Trash2 size={13} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                ) : cases.map((c, i) => {
+                  const isNew = isNewCase(c);
+                  return (
+                    <tr 
+                      key={c.id} 
+                      onClick={() => markCaseAsSeen(c.id)}
+                      className={`border-b border-slate-100 hover:bg-blue-50/50 transition-colors cursor-pointer ${
+                        i % 2 === 1 ? 'bg-blue-50/20' : 'bg-white'
+                      } ${isNew ? 'border-l-4 border-l-red-400' : ''}`}>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-blue-600 text-sm">#{c.caseId}</span>
+                          {isNew && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-600 border border-red-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                              New
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                            <span className="text-white text-[11px] font-bold">{c.fullName?.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <p className="font-semibold text-slate-800 text-sm">{c.fullName}</p>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4"><ExposureBadge type={c.exposureType} /></td>
+                      <td className="px-5 py-4"><StatusBadge status={c.status} /></td>
+                      <td className="px-5 py-4 text-slate-500 text-sm whitespace-nowrap">{formatDate(c.dateOfExposure)}</td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation();
+                              closeAll(); 
+                              setViewId(viewId === c.id ? null : c.id); 
+                            }}
+                            className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${viewId === c.id ? 'bg-blue-600 border-blue-600 text-white' : 'bg-blue-50 border-blue-100 text-blue-500 hover:bg-blue-100'}`}>
+                            <Eye size={13} />
+                          </button>
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation();
+                              closeAll(); 
+                              setEditId(editId === c.id ? null : c.id); 
+                            }}
+                            className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${editId === c.id ? 'bg-amber-500 border-amber-500 text-white' : 'bg-amber-50 border-amber-100 text-amber-500 hover:bg-amber-100'}`}>
+                            <Pencil size={13} />
+                          </button>
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation();
+                              setDeleteId(c.id); 
+                            }} 
+                            className="w-8 h-8 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center text-red-400 hover:bg-red-100 transition-colors">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
