@@ -19,8 +19,23 @@ startVaccinationReminderJob();
 // Middlewares
 app.use(helmet());
 
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:8081',
+  ...(process.env.ALLOWED_ORIGINS?.split(',') || []),
+];
+
 app.use(cors({
-  origin: '*',
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
 }));
 
 app.use(morgan('dev'));
