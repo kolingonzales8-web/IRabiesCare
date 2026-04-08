@@ -131,6 +131,8 @@ exports.getAllVaccinations = async (req, res) => {
     const where = { patientId: { $in: patientIds } };
     if (status && status !== 'All') where.status = status;
 
+    if (req.query.vaccineBrand && req.query.vaccineBrand !== 'All') where.vaccineBrand = req.query.vaccineBrand;
+
     let vaccinations = await Vaccination.find(where).sort({ createdAt: -1 });
 
     if (search) {
