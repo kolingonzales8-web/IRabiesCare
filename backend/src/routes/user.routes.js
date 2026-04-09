@@ -53,13 +53,23 @@ router.post('/', protect, async (req, res) => {
 // PUT update user
 router.put('/:id', protect, async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).select('-password');
+    const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ message: 'User updated successfully', user });
+
+    const { name, email, role, password, isActive } = req.body;
+
+    if (name     !== undefined) user.name     = name;
+    if (email    !== undefined) user.email    = email;
+    if (isActive !== undefined) user.isActive = isActive;
+    if (role !== undefined && user.role !== 'user') user.role = role;
+    if (password) user.password = password;
+
+    await user.save();
+
+    res.json({
+      message: 'User updated successfully',
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, isActive: user.isActive },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
