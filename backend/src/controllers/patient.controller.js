@@ -81,7 +81,9 @@ exports.createPatient = async (req, res) => {
         type: 'patient',
         message: `New patient record created for ${linkedCase.fullName}`,
         createdBy: req.user.name,
-        recipients: adminUsers.map(u => u._id),
+        recipients: adminUsers
+        .filter(u => u._id.toString() !== req.user.id.toString())
+        .map(u => u._id),
       });
 
      try {

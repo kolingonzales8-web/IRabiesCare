@@ -25,7 +25,9 @@ exports.register = async (req, res) => {
       type: 'user',
       message: `New user registered: ${name}`,
       createdBy: name,
-      recipients: adminUsers.map(u => u._id),
+      recipients: adminUsers
+      .filter(u => u._id.toString() !== req.user.id.toString())
+      .map(u => u._id),
     });
         
 

@@ -273,11 +273,15 @@ exports.createVaccination = async (req, res) => {
 
     const Notification = require('../models/notification.model');
    const adminUsers = await User.find({ role: 'admin' }).select('_id');
+   
     await Notification.create({
       type: 'vaccination',
       message: `New vaccination record created for ${patient.fullName}`,
       createdBy: req.user.name,
-      recipients: adminUsers.map(u => u._id),
+      recipients: adminUsers
+      .filter(u => u._id.toString() !== req.user.id.toString())
+      .map(u => u._id),
+
     });
      try {
       const adminIds     = getConnectedAdminIds();

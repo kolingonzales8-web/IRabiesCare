@@ -95,9 +95,11 @@ exports.createAnimal = async (req, res) => {
         type: 'animal',
         message: `New animal record created for Case #${linkedCase.caseId}`,
         createdBy: req.user.name,
-        recipients: adminUsers.map(u => u._id),
-      });
-      
+        recipients: adminUsers
+        .filter(u => u._id.toString() !== req.user.id.toString())
+        .map(u => u._id),
+            });
+            
      try {
       const adminIds  = getConnectedAdminIds();
       const staffId   = linkedCase?.assignedTo?.toString();

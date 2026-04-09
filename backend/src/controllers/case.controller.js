@@ -120,15 +120,16 @@ exports.createCase = async (req, res) => {
 
     const Notification = require('../models/notification.model');
 
-   const adminUsers = await User.find({ role: 'admin' }).select('_id');
-    const adminIds = adminUsers.map(u => u._id);
+  const adminUsers = await User.find({ role: 'admin' }).select('_id');
 
-  await Notification.create({
-    type: 'case',
-    message: `New case registered for ${caseFields.fullName}`,
-    createdBy: req.user.name,
-    recipients: adminIds, // only admins see this
-  });
+    await Notification.create({
+      type: 'case',
+      message: `New case registered for ${caseFields.fullName}`,
+      createdBy: req.user.name,
+      recipients: adminUsers
+        .filter(u => u._id.toString() !== req.user.id.toString())
+        .map(u => u._id),
+    });
     
     // ✅ ADD THIS
     console.log('=== createCase SUCCESS ===', newCase.caseId);
