@@ -7,7 +7,7 @@ const { pushToUsers, getConnectedAdminIds } = require('./notifications.controlle
 
 exports.getAllAnimals = async (req, res) => {
   try {
-    const { status, search, page = 1, limit = 10 } = req.query;
+    const { status, species, search, page = 1, limit = 10 } = req.query;
 
     const caseWhere = req.user.role === 'admin' ? {} : { assignedTo: req.user.id };
     if (search) {
@@ -20,8 +20,9 @@ exports.getAllAnimals = async (req, res) => {
     const scopedCases = await Case.find(caseWhere).select('_id caseId fullName dateOfExposure');
     const caseIds     = scopedCases.map(c => c._id);
 
-    const where = { caseId: { $in: caseIds } };
+   const where = { caseId: { $in: caseIds } };
     if (status && status !== 'All') where.observationStatus = status;
+    if (species && species !== 'All') where.animalSpecies = species;
     if (search) where.$or = [
       { animalSpecies: { $regex: search, $options: 'i' } },
       { ownerName:     { $regex: search, $options: 'i' } },
