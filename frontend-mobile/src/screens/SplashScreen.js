@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, Animated, Dimensions,
 } from 'react-native';
-import { Shield } from 'lucide-react-native';
+import Svg, { Path, Rect, Line, Circle } from 'react-native-svg';
 
 const { width, height } = Dimensions.get('window');
 
@@ -62,21 +62,29 @@ export default function SplashScreen({ onComplete, duration = 3000 }) {
 
         {/* White logo circle */}
         <View style={styles.logoCircle}>
-          <View style={styles.shieldOuter}>
-            <Shield color="#1565C0" fill="#1565C0" size={56} />
-            <View style={styles.crossH} />
-            <View style={styles.crossV} />
-            <View style={styles.redDot}>
-              <View style={styles.dotCrossH} />
-              <View style={styles.dotCrossV} />
-            </View>
-          </View>
-        </View>
+           <Svg width={140} height={140} viewBox="255 55 170 250">
+          <Path d="M340 55 L425 88 L425 202 Q425 268 340 300 Q255 268 255 202 L255 88 Z" fill="rgba(255,255,255,0.9)" stroke="rgba(255,255,255,0.5)" strokeWidth="2"/>
+          <Path d="M340 72 L410 100 L410 200 Q410 254 340 282 Q270 254 270 200 L270 100 Z" fill="rgba(255,255,255,0.7)"/>
+          <Rect x="322" y="118" width="36" height="100" rx="6" fill="#1a5fa8" opacity="0.95"/>
+          <Rect x="292" y="148" width="96" height="36" rx="6" fill="#1a5fa8" opacity="0.95"/>
+          <Rect x="335" y="128" width="10" height="60" rx="3" fill="white"/>
+          <Rect x="330" y="155" width="20" height="24" rx="2" fill="#5ba4e6"/>
+          <Line x1="340" y1="188" x2="340" y2="200" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+          <Circle cx="302" cy="158" r="5" fill="white"/>
+          <Circle cx="378" cy="158" r="5" fill="white"/>
+          <Circle cx="302" cy="172" r="5" fill="white"/>
+          <Circle cx="378" cy="172" r="5" fill="white"/>
+        </Svg>
+      </View>
       </Animated.View>
 
       {/* ── Brand text ── */}
       <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }], alignItems: 'center' }}>
-        <Text style={styles.brandName}>iRabiesCare</Text>
+        <Text style={styles.brandName}>
+        <Text style={{ fontStyle: 'italic', color: '#ff6b6b' }}>i</Text>
+        <Text style={{ color: '#ffffff' }}>Rabies</Text>
+        <Text style={{ color: '#90caf9' }}>Care</Text>
+      </Text>
         <Text style={styles.subtitle}>CASE MANAGEMENT SYSTEM</Text>
         <Text style={styles.tagline}>
           Protecting Lives Through Timely{'\n'}Vaccination & Comprehensive Care
@@ -150,43 +158,7 @@ const styles = StyleSheet.create({
     // Cyan glow matching FAB and accent color
     backgroundColor: 'rgba(0,188,212,0.25)',
   },
-  logoCircle: {
-    width: 120, height: 120, borderRadius: 60,
-    backgroundColor: '#fff',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3, shadowRadius: 16, elevation: 12,
-  },
-  shieldOuter: {
-    width: 72, height: 72,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  crossH: {
-    position: 'absolute',
-    width: 22, height: 4, backgroundColor: '#fff',
-    borderRadius: 2, top: '50%', marginTop: -2,
-  },
-  crossV: {
-    position: 'absolute',
-    width: 4, height: 22, backgroundColor: '#fff',
-    borderRadius: 2, left: '50%', marginLeft: -2, top: '25%',
-  },
-  redDot: {
-    position: 'absolute',
-    width: 14, height: 14, borderRadius: 7,
-    backgroundColor: '#e74c3c',
-    top: 4, right: 4,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  dotCrossH: {
-    position: 'absolute',
-    width: 8, height: 2, backgroundColor: '#fff', borderRadius: 1,
-  },
-  dotCrossV: {
-    position: 'absolute',
-    width: 2, height: 8, backgroundColor: '#fff', borderRadius: 1,
-  },
+
 
   // ── Text ──
   brandName: {

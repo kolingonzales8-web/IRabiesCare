@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const apiClient = axios.create({
-  baseURL: 'https://backend-production-9b22.up.railway.app/api',
+  baseURL: 'https://irabiescare-production.up.railway.app/api',
 });
 
 // ✅ Public routes that don't need token

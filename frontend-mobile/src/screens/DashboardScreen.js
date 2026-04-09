@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { WebView } from 'react-native-webview';
+import Svg, { Circle } from 'react-native-svg';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, ActivityIndicator, RefreshControl,
-  Animated, StatusBar, Dimensions,
+  Animated, StatusBar, Dimensions, Platform,
 } from 'react-native';
 import {
   Shield, Plus, FileText, Syringe, Clock,
-  CheckCircle, AlertCircle, LogOut, ChevronRight,
+  CheckCircle, ChevronRight,
   Bell, X, Activity, MapPin, Calendar, Heart,
   Stethoscope, MoreVertical, TrendingUp, Bot,
 } from 'lucide-react-native';
@@ -130,7 +132,6 @@ const FABGroup = ({ onAddPress, onChatPress }) => {
   const chatPulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Subtle pulse on the AI button to draw attention
     Animated.loop(
       Animated.sequence([
         Animated.timing(chatPulse, { toValue: 1.12, duration: 1500, useNativeDriver: true }),
@@ -143,7 +144,6 @@ const FABGroup = ({ onAddPress, onChatPress }) => {
     <View style={s.fabGroup}>
       {/* AI Chat FAB */}
       <Animated.View style={[s.fabAiWrapper, { transform: [{ scale: chatScale }] }]}>
-        {/* Pulse ring */}
         <Animated.View style={[s.fabAiPulse, { transform: [{ scale: chatPulse }] }]} />
         <TouchableOpacity
           style={s.fabAi}
@@ -169,6 +169,223 @@ const FABGroup = ({ onAddPress, onChatPress }) => {
           <Plus color="#fff" size={26} strokeWidth={2.5} />
         </TouchableOpacity>
       </Animated.View>
+    </View>
+  );
+};
+
+/* ── Animated Progress Ring ── */
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+const ProgressRing = ({ num, total, color }) => {
+  const progress = useRef(new Animated.Value(0)).current;
+  const radius = 22;
+  const stroke = 4;
+  const circumference = 2 * Math.PI * radius;
+  const pct = total === 0 ? 0 : Math.min(num / total, 1);
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: pct,
+      duration: 1200,
+      useNativeDriver: false,
+    }).start();
+  }, [pct]);
+
+  const strokeDashoffset = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [circumference, 0],
+  });
+
+  return (
+    <Svg width={54} height={54} style={{ transform: [{ rotate: '-90deg' }] }}>
+      <Circle
+        cx={27} cy={27} r={radius}
+        stroke="#e0f2fe" strokeWidth={stroke} fill="none"
+      />
+      <AnimatedCircle
+        cx={27} cy={27} r={radius}
+        stroke={color}
+        strokeWidth={stroke}
+        fill="none"
+        strokeDasharray={circumference}
+        strokeDashoffset={strokeDashoffset}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+};
+
+/* ── Rabies Tips Carousel ── */
+const TIPS = [
+  { icon: '🐾', title: 'Wash Immediately', tip: 'Wash the wound with soap and water for at least 15 minutes after any animal bite.' },
+  { icon: '💉', title: 'Get PEP Now', tip: 'Post-exposure prophylaxis is most effective when started immediately after exposure.' },
+  { icon: '🐕', title: 'Avoid Stray Animals', tip: 'Do not approach or feed stray dogs and cats, even if they appear friendly.' },
+  { icon: '🏥', title: 'Visit a Health Center', tip: 'Always report animal bites to your nearest Animal Bite Treatment Center (ABTC).' },
+  { icon: '🛡️', title: 'Vaccinate Your Pets', tip: "Keep your pets' rabies vaccines up to date to protect your family and community." },
+];
+
+const TipsCarousel = () => {
+  const scrollRef = useRef(null);
+  const currentIndex = useRef(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      currentIndex.current = (currentIndex.current + 1) % TIPS.length;
+      scrollRef.current?.scrollTo({ x: currentIndex.current * (SW - 28), animated: true });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <Text style={[s.sectionLabel, { color: '#0369a1', marginBottom: 10 }]}>
+        💡 RABIES AWARENESS TIPS
+      </Text>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        snapToInterval={SW - 28}
+        decelerationRate="fast"
+      >
+        {TIPS.map((item, index) => (
+          <View
+            key={index}
+            style={{
+              width: SW - 28,
+              backgroundColor: '#e0f2fe',
+              borderRadius: 16,
+              padding: 18,
+              borderWidth: 1,
+              borderColor: '#bae6fd',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 14,
+            }}
+          >
+            <Text style={{ fontSize: 36 }}>{item.icon}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: '#0369a1', marginBottom: 4 }}>
+                {item.title}
+              </Text>
+              <Text style={{ fontSize: 12, color: '#475569', lineHeight: 18 }}>
+                {item.tip}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+      {/* Dot indicators */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 }}>
+        {TIPS.map((_, i) => (
+          <View
+            key={i}
+            style={{
+              width: i === 0 ? 16 : 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: i === 0 ? '#0369a1' : '#bae6fd',
+            }}
+          />
+        ))}
+      </View>
+    </View>
+  );
+};
+
+/* ── Awareness Video Card ── */
+const AwarenessVideoCard = () => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <View style={{
+      backgroundColor: '#fff',
+      borderRadius: 16,
+      marginBottom: 16,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: '#bae6fd',
+      shadowColor: '#0ea5e9',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 2,
+    }}>
+      {/* Card Header */}
+      <View style={{
+        backgroundColor: '#1565C0',
+        padding: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+      }}>
+        <Text style={{ fontSize: 20 }}>🎬</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 13, fontWeight: '800', color: '#fff' }}>
+            Rabies Awareness Video
+          </Text>
+          <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>
+            DOH Philippines — Know the facts
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => setExpanded(p => !p)}
+          style={{
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 20,
+          }}
+        >
+          <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>
+            {expanded ? 'Hide ▲' : 'Watch ▶'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Video Player — Platform-aware */}
+      {expanded && (
+        <View style={{ height: 210 }}>
+          {Platform.OS === 'web' ? (
+            // Fallback for web browser
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f9ff', gap: 8 }}>
+              <Text style={{ fontSize: 32 }}>📱</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369a1' }}>
+                Open in Expo Go
+              </Text>
+              <Text style={{ fontSize: 11, color: '#64748b', textAlign: 'center', paddingHorizontal: 20 }}>
+                Video playback is only available on iOS and Android devices.
+              </Text>
+            </View>
+          ) : (
+            // Real video on mobile
+            <WebView
+              source={{ uri: 'https://www.youtube.com/embed/I8TXEpxOqT0?autoplay=1' }}
+              allowsFullscreenVideo
+              javaScriptEnabled
+              style={{ flex: 1 }}
+            />
+          )}
+        </View>
+      )}
+
+      {/* Footer */}
+      {!expanded && (
+        <View style={{
+          padding: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          backgroundColor: '#f0f9ff',
+        }}>
+          <Text style={{ fontSize: 12, color: '#475569', flex: 1, lineHeight: 18 }}>
+            Learn how to protect yourself and your family from rabies exposure.
+          </Text>
+          <Text style={{ fontSize: 22 }}>🐕</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -204,8 +421,8 @@ export default function DashboardScreen({ navigation }) {
   const handleLogout = async () => { await logout(); navigation.replace('Login'); };
 
   const pendingCount   = myCases.filter(c => c.status?.toLowerCase() === 'pending').length;
- const activeCount = myCases.filter(c => c.status?.toLowerCase() !== 'completed').length;
- const ongoingCount   = myCases.filter(c => c.status?.toLowerCase() === 'ongoing').length; // ← keep if used in stats card
+  const activeCount    = myCases.filter(c => c.status?.toLowerCase() !== 'completed').length;
+  const ongoingCount   = myCases.filter(c => c.status?.toLowerCase() === 'ongoing').length;
   const completedCount = myCases.filter(c => c.status?.toLowerCase() === 'completed').length;
   const allUpcoming    = getUpcomingDoses(myVaccinations).slice(0, 5);
   const urgentDoses    = allUpcoming.filter(d => {
@@ -304,13 +521,19 @@ export default function DashboardScreen({ navigation }) {
                   <TrendingUp color="#10b981" size={10} />
                   <Text style={{ fontSize:10, color:'#10b981', fontWeight:'600' }}>+0%</Text>
                 </View>
-                <View style={[s.statIconBox, { backgroundColor: gradient[0] }]}>
-                  <Icon color="#fff" size={20} />
+                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 4 }}>
+                  <ProgressRing num={num} total={myCases.length} color={gradient[0]} />
+                  <View style={{ position: 'absolute' }}>
+                    <Icon color={gradient[0]} size={16} />
+                  </View>
                 </View>
               </View>
             ))}
           </View>
         )}
+
+        <TipsCarousel />
+        <AwarenessVideoCard />
 
         <TouchableOpacity
           style={s.ctaBtn}
@@ -326,8 +549,7 @@ export default function DashboardScreen({ navigation }) {
           <View style={s.sectionContainerHeader}>
             <Text style={[s.sectionContainerTitle, { color: dark ? colors.accent : '#0369a1' }]}>Recent Cases</Text>
             {myCases.length > 0 && (
-              <TouchableOpacity style={s.viewAllRow}
-                onPress={() => navigation.navigate('Cases')}>
+              <TouchableOpacity style={s.viewAllRow} onPress={() => navigation.navigate('Cases')}>
                 <Text style={s.viewAllText}>View All</Text>
                 <ChevronRight color="#0ea5e9" size={15} />
               </TouchableOpacity>
@@ -448,7 +670,7 @@ export default function DashboardScreen({ navigation }) {
 
       </ScrollView>
 
-      {/* FAB Group — AI button above + button */}
+      {/* FAB Group */}
       <FABGroup
         onAddPress={() => navigation.navigate('AddCase')}
         onChatPress={() => navigation.navigate('Chat')}
@@ -544,11 +766,6 @@ const s = StyleSheet.create({
   },
   statLbl: { fontSize:9, fontWeight:'800', color:'#94a3b8', letterSpacing:0.8, marginBottom:4 },
   statNum: { fontSize:32, fontWeight:'900', color:'#1e293b', lineHeight:36 },
-  statIconBox: {
-    width:44, height:44, borderRadius:12,
-    alignItems:'center', justifyContent:'center',
-    marginTop:4,
-  },
 
   ctaBtn: {
     flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8,
@@ -633,9 +850,7 @@ const s = StyleSheet.create({
     position:'absolute', bottom:28, right:20, zIndex:999,
     alignItems:'center', gap:12,
   },
-  fabAiWrapper: {
-    alignItems:'center',
-  },
+  fabAiWrapper: { alignItems:'center' },
   fabAiPulse: {
     position:'absolute',
     width:62, height:62, borderRadius:31,

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://backend-production-9b22.up.railway.app/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://irabiescare-production.up.railway.app/api',
 });
 
 // ✅ Public routes that don't need token

@@ -137,14 +137,25 @@ export default function MainLayout({ children }) {
   });
   const pollRef = useRef(null);
 
-  const fetchCounts = useCallback(async () => {
-    try {
-      const { data } = await getNotificationCounts();
-      setCounts(data);
-    } catch {
-      // Silently fail — badges just won't show if the request errors
-    }
-  }, []);
+ const fetchCounts = useCallback(async () => {
+  try {
+    const { data } = await getNotificationCounts();
+    setCounts(data);
+  } catch {
+    // Silently fail — badges just won't show if the request errors
+  }
+}, []);
+
+const fetchUnreadCaseBadge = useCallback(async () => {
+  try {
+    const { data } = await getNotifications();
+    const unreadCaseCount = data.filter(n => !n.isRead && n.type === 'case').length;
+    setCounts(prev => ({
+      ...prev,
+      cases: Math.max(prev.cases || 0, unreadCaseCount),
+    }));
+  } catch {}
+}, []);
 
   const fetchNotifications = useCallback(async () => {
   setNotifsLoading(true);
@@ -172,7 +183,9 @@ const handleMarkAllRead = async () => {
     sseRef.current = es;
 
     es.addEventListener('connected', () => {
-      fetchCounts(); // hydrate badges on connect
+      fetchCounts();
+      fetchNotifications();
+      fetchUnreadCaseBadge(); 
     });
 
     es.addEventListener('notification', (e) => {
@@ -243,7 +256,8 @@ const handleMarkAllRead = async () => {
   const avatarLetter = user?.name?.charAt(0)?.toUpperCase() || 'A';
   const { title, sub } = getHeaderInfo(location.pathname);
   // ✅ Updated: Pass localNewUsers, localNewCases, localNewPatients, localNewVaccinations, and localNewAnimals to totalBadge
-  const bellCount = totalBadge(counts);
+  const unreadNotifCount = notifications.filter(n => !n.isRead).length;
+const bellCount = Math.max(totalBadge(counts), unreadNotifCount);
 
   const d = {
     rootBg:      dark ? 'bg-[#070d1a]'                      : 'bg-slate-50',

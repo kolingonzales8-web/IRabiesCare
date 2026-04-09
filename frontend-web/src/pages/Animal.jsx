@@ -817,6 +817,7 @@ export default function Animal() {
   const [stats, setStats]               = useState({ total: 0, underObservation: 0, completedObservation: 0, lostToFollowUp: 0 });
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [speciesFilter, setSpeciesFilter] = useState('All');
   const [page, setPage]                 = useState(1);
   const [totalPages, setTotalPages]     = useState(1);
   const [total, setTotal]               = useState(0);
@@ -831,13 +832,19 @@ export default function Animal() {
 
   const closeAll = () => { setViewId(null); setEditId(null); setAddOpen(false); };
   const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—';
-  const filterTabs = ['All', 'Under Observation', 'Completed Observation', 'Lost to Follow-up'];
+ 
 
   const fetchAnimals = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiClient.get('/animals', {
-        params: { page, limit: ITEMS_PER_PAGE, ...(statusFilter !== 'All' && { status: statusFilter }), ...(search && { search }) },
+        params: {
+  page, limit: ITEMS_PER_PAGE,
+  ...(statusFilter !== 'All' && { status: statusFilter }),
+  ...(speciesFilter !== 'All' && { species: speciesFilter }),
+  ...(search && { search }),
+},
+
       });
       setAnimals(res.data.animals);
       setTotal(res.data.total);
@@ -847,7 +854,7 @@ export default function Animal() {
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter, search]);
+  }, [page, statusFilter, speciesFilter, search]);
 
   const fetchStats = useCallback(async () => {
     try { const res = await apiClient.get('/animals/stats'); setStats(res.data); } catch {}
@@ -938,26 +945,68 @@ export default function Animal() {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input type="text" placeholder="Search by animal species, case ID, or name..."
-            value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-slate-600">Status:</span>
-          {filterTabs.map(s => (
-            <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${statusFilter === s ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600'}`}>
-              {s}
-            </button>
-          ))}
-          <button className="flex items-center gap-1.5 px-4 py-2 border border-violet-200 text-violet-600 rounded-lg text-sm font-medium hover:bg-violet-50">
-            <Filter size={14} />More Filters
-          </button>
-        </div>
-      </div>
+      {/* Filter Bar */}
+<div className="bg-white rounded-2xl p-4 mb-4 shadow-sm flex flex-wrap items-center gap-3 border-b border-slate-100">
+
+  {/* Search */}
+  <div className="relative flex-1 min-w-[220px]">
+    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+    <input
+      type="text"
+      placeholder="Search by animal species, case ID, or name..."
+      value={search}
+      onChange={e => { setSearch(e.target.value); setPage(1); }}
+      className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+    />
+  </div>
+
+  {/* Observation Status Dropdown */}
+  <div className="relative">
+    <select
+      value={statusFilter}
+      onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+      className="appearance-none pl-3.5 pr-9 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+    >
+      <option value="All">All Status</option>
+      <option value="Under Observation">🟠 Under Observation</option>
+      <option value="Completed Observation">🟢 Completed Observation</option>
+      <option value="Lost to Follow-up">🟣 Lost to Follow-up</option>
+    </select>
+    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+    {statusFilter !== 'All' && (
+      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white" />
+    )}
+  </div>
+
+  {/* Species Dropdown */}
+  <div className="relative">
+    <select
+      value={speciesFilter}
+      onChange={e => { setSpeciesFilter(e.target.value); setPage(1); }}
+      className="appearance-none pl-3.5 pr-9 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+    >
+      <option value="All">All Species</option>
+      <option value="Dog">🐕 Dog</option>
+      <option value="Cat">🐈 Cat</option>
+      <option value="Others">🐾 Others</option>
+    </select>
+    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+    {speciesFilter !== 'All' && (
+      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-violet-500 border-2 border-white" />
+    )}
+  </div>
+
+  {/* Clear Filters */}
+  {(statusFilter !== 'All' || speciesFilter !== 'All' || search) && (
+    <button
+      onClick={() => { setSearch(''); setStatusFilter('All'); setSpeciesFilter('All'); setPage(1); }}
+      className="flex items-center gap-1.5 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all"
+    >
+      <X size={13} /> Clear Filters
+    </button>
+  )}
+
+</div>
 
       {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">

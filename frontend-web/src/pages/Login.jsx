@@ -187,8 +187,12 @@ export default function Login() {
          
 
           {/* Error Message */}
-          {error && (
-            <div className="flex items-center gap-3 px-4 py-3 mb-5 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+         {error && (
+          <div className={`flex items-center gap-3 px-4 py-3 mb-5 rounded-lg text-sm border ${
+            error.toLowerCase().includes('deactivated')
+              ? 'bg-orange-50 border-orange-200 text-orange-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
               <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
                 <path d="M12 8V12M12 16H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

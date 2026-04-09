@@ -3,7 +3,7 @@ import {
   Plus, Search, Eye, Pencil, Trash2, RefreshCw, Download, Filter,
   ChevronLeft, ChevronRight, Loader2, Syringe,
   X, Save, CheckCircle2, XCircle, CalendarCheck,
-  Circle, AlertCircle, Clock, User, Activity, Calendar, TrendingUp, Bell,
+  Circle, AlertCircle, Clock, User, Activity, Calendar, TrendingUp, Bell,ChevronDown,
 } from 'lucide-react';
 import apiClient from '../api/client';
 
@@ -803,6 +803,7 @@ export default function Vaccination() {
   const [stats, setStats]               = useState({ total: 0, ongoing: 0, completed: 0, rigGiven: 0 });
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [brandFilter, setBrandFilter] = useState('All');
   const [page, setPage]                 = useState(1);
   const [totalPages, setTotalPages]     = useState(1);
   const [total, setTotal]               = useState(0);
@@ -820,7 +821,15 @@ export default function Vaccination() {
   const fetchVaccinations = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const res = await apiClient.get('/vaccinations', { params: { page, limit: ITEMS_PER_PAGE, ...(statusFilter !== 'All' && { status: statusFilter }), ...(search && { search }) } });
+      const res = await apiClient.get('/vaccinations', {
+  params: {
+    page,
+    limit: ITEMS_PER_PAGE,
+    ...(statusFilter !== 'All' && { status: statusFilter }),
+    ...(brandFilter !== 'All' && { vaccineBrand: brandFilter }),
+    ...(search && { search }),
+  }
+});
       setVaccinations(res.data.vaccinations);
       setTotal(res.data.total);
       setTotalPages(res.data.totalPages);
@@ -829,7 +838,7 @@ export default function Vaccination() {
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter, search]);
+  }, [page, statusFilter, brandFilter, search]);
 
   const fetchStats = useCallback(async () => {
     try { const res = await apiClient.get('/vaccinations/stats'); setStats(res.data); } catch {}
@@ -855,6 +864,7 @@ export default function Vaccination() {
 
   const handleSearch       = (val) => { setSearch(val); setPage(1); };
   const handleStatusFilter = (val) => { setStatusFilter(val); setPage(1); };
+  const handleBrandFilter = (val) => { setBrandFilter(val); setPage(1); };
 
   const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—';
   const fmtLong = d => d ? new Date(d).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '';
@@ -940,23 +950,68 @@ export default function Vaccination() {
         <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden min-h-0">
 
           {/* Filters */}
-          <div className="shrink-0 bg-white p-3 shadow-sm flex flex-wrap items-center gap-2 border-b border-slate-100">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-              <input type="text" placeholder="Search by name, case ID, or brand..."
-                value={search} onChange={e => handleSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-semibold text-slate-600">Status:</span>
-              {['All', 'Ongoing', 'Completed'].map(s => (
-                <button key={s} onClick={() => handleStatusFilter(s)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === s ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600'}`}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
+         <div className="shrink-0 bg-white p-3 shadow-sm flex flex-wrap items-center gap-2 border-b border-slate-100">
+
+  {/* Search */}
+  <div className="relative flex-1 min-w-[200px]">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+    <input
+      type="text"
+      placeholder="Search by name, case ID, or brand..."
+      value={search}
+      onChange={e => handleSearch(e.target.value)}
+      className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+    />
+  </div>
+
+  {/* Status Dropdown */}
+  <div className="relative">
+    <select
+      value={statusFilter}
+      onChange={e => handleStatusFilter(e.target.value)}
+      className="appearance-none pl-3 pr-8 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+    >
+      <option value="All">All Status</option>
+      <option value="Ongoing">🔵 Ongoing</option>
+      <option value="Completed">🟢 Completed</option>
+    </select>
+    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+    {statusFilter !== 'All' && (
+      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white" />
+    )}
+  </div>
+
+  {/* Vaccine Brand Dropdown */}
+  <div className="relative">
+    <select
+      value={brandFilter}
+      onChange={e => handleBrandFilter(e.target.value)}
+      className="appearance-none pl-3 pr-8 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
+    >
+      <option value="All">All Brands</option>
+      <option value="Verorab">Verorab</option>
+      <option value="Speeda">Speeda</option>
+      <option value="Rabipur">Rabipur</option>
+      <option value="Imovax Rabies">Imovax Rabies</option>
+      <option value="Abhayrab">Abhayrab</option>
+    </select>
+    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+    {brandFilter !== 'All' && (
+      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-purple-500 border-2 border-white" />
+    )}
+  </div>
+
+  {/* Clear Filters */}
+  {(statusFilter !== 'All' || brandFilter !== 'All' || search) && (
+    <button
+      onClick={() => { handleSearch(''); handleStatusFilter('All'); handleBrandFilter('All'); }}
+      className="flex items-center gap-1 px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all"
+    >
+      <X size={12} /> Clear Filters
+    </button>
+  )}
+
+</div>
 
           {/* Table */}
           <div className="flex-1 overflow-x-auto min-h-0">

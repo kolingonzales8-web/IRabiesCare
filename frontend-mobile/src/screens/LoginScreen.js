@@ -51,8 +51,14 @@ export default function LoginScreen({ navigation }) {
       await setAuth(res.data.user, res.data.token);
       navigation.replace('Dashboard');
     } catch (err) {
-      Alert.alert('Login Failed', err.response?.data?.message || 'Invalid credentials. Please try again.');
-    } finally {
+      const msg = err.response?.data?.message || 'Invalid credentials. Please try again.';
+    const isDeactivated = msg.toLowerCase().includes('deactivated');
+    Alert.alert(
+      isDeactivated ? 'Account Deactivated' : 'Login Failed',
+      isDeactivated ? 'Your account has been deactivated. Please contact your administrator.' : msg,
+      [{ text: 'OK', style: isDeactivated ? 'destructive' : 'cancel' }]
+    ); 
+   } finally {
       setLoading(false);
     }
   };
