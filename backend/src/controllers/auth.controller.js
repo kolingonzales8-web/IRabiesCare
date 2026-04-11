@@ -21,13 +21,12 @@ exports.register = async (req, res) => {
 
     const Notification = require('../models/notification.model');
    const adminUsers = await User.find({ role: 'admin' }).select('_id');
-    await Notification.create({
+    
+   await Notification.create({
       type: 'user',
       message: `New user registered: ${name}`,
       createdBy: name,
-      recipients: adminUsers
-      .filter(u => u._id.toString() !== req.user.id.toString())
-      .map(u => u._id),
+      recipients: adminUsers.map(u => u._id),
     });
         
 
