@@ -5,8 +5,8 @@ const SYSTEM_PROMPT = `...`; // keep your existing prompt
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Two models — primary and fallback
-const PRIMARY_MODEL   = 'gemini-1.5-flash';   // stable, replace 2.5-flash
-const FALLBACK_MODEL  = 'gemini-1.5-pro';     // fallback if primary fails
+const PRIMARY_MODEL  = 'gemini-2.0-flash';
+const FALLBACK_MODEL = 'gemini-1.5-flash-latest';
 
 async function generateWithRetry(modelName, systemPrompt, chatHistory, message, retries = 3) {
   const model = genAI.getGenerativeModel({
