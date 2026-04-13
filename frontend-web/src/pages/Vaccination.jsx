@@ -205,7 +205,7 @@ const ViewPanel = ({ vaccinationId, onClose, onEdit }) => {
 
   return (
     <PanelShell width="max-w-2xl" onBackdropClick={onClose}>
-      <div className="h-1 w-full bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-600 shrink-0" />
+     
 
       <div className="shrink-0 bg-white border-b border-slate-100 px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -442,7 +442,7 @@ const EditPanel = ({ vaccinationId, onClose, onSaved }) => {
 
   return (
     <PanelShell width="max-w-2xl" onBackdropClick={onClose}>
-      <div className="h-1 w-full bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 shrink-0" />
+      
 
       <div className="shrink-0 border-b border-slate-100 px-6 h-14 flex items-center justify-between bg-white">
         <div className="flex items-center gap-3">
@@ -670,7 +670,7 @@ const AddPanel = ({ onClose, onSaved }) => {
 
   return (
     <PanelShell width="max-w-2xl" onBackdropClick={onClose}>
-      <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 shrink-0" />
+      
 
       <div className="shrink-0 border-b border-slate-100 px-6 h-14 flex items-center justify-between bg-white">
         <div className="flex items-center gap-3">

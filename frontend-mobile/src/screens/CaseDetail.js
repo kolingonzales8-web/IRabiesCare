@@ -3,9 +3,9 @@ import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, ActivityIndicator, RefreshControl, StatusBar,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import {
   ChevronLeft, Clock, User, Zap, Cat, Scissors,
-  Syringe, CheckCircle, Circle, AlertCircle,
 } from 'lucide-react-native';
 import apiClient from '../api/client';
 import useThemeStore from '../store/themeStore';
@@ -64,70 +64,8 @@ const row = StyleSheet.create({
   value:  { fontSize: 13, color: '#1e293b', fontWeight: '600', flex: 1.2, textAlign: 'right' },
 });
 
-const DoseRow = ({ label, administered, scheduled, missed, last }) => {
-  const fmt = (d) => d
-    ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
-    : null;
 
-  const isDone = !!administered;
-  const isMissed = missed && !administered;
-  const isScheduled = !!scheduled && !administered && !missed;
 
-  return (
-    <View style={[doseS.wrap, !last && doseS.border]}>
-      {isDone   && <CheckCircle color="#10b981" size={16} fill="#10b981" />}
-      {isMissed && <AlertCircle color="#ef4444" size={16} />}
-      {!isDone && !isMissed && <Circle color="#cbd5e1" size={16} />}
-
-      <View style={{ flex: 1 }}>
-        <Text style={[
-          doseS.label,
-          isDone   && doseS.labelDone,
-          isMissed && doseS.labelMissed,
-        ]}>
-          {label}
-        </Text>
-        {isMissed && <Text style={doseS.missedTag}>Missed</Text>}
-      </View>
-
-      <View style={{ alignItems: 'flex-end' }}>
-        {isDone ? (
-          <Text style={doseS.dateDone}>{fmt(administered)}</Text>
-        ) : isScheduled ? (
-          <>
-            <Text style={doseS.dateScheduled}>{fmt(scheduled)}</Text>
-            <Text style={doseS.scheduledTag}>Scheduled</Text>
-          </>
-        ) : isMissed ? (
-          <Text style={doseS.dateMissed}>{fmt(scheduled) || '—'}</Text>
-        ) : (
-          <Text style={doseS.dateEmpty}>Not scheduled</Text>
-        )}
-      </View>
-    </View>
-  );
-};
-const doseS = StyleSheet.create({
-  wrap:          { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
-  border:        { borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  label:         { fontSize: 13, color: '#94a3b8' },
-  labelDone:     { color: '#1e293b', fontWeight: '600' },
-  labelMissed:   { color: '#ef4444', fontWeight: '600' },
-  missedTag:     { fontSize: 10, color: '#ef4444', marginTop: 2 },
-  dateDone:      { fontSize: 12, color: '#10b981', fontWeight: '700' },
-  dateScheduled: { fontSize: 12, color: '#3b82f6', fontWeight: '600' },
-  scheduledTag:  { fontSize: 10, color: '#3b82f6', marginTop: 1 },
-  dateMissed:    { fontSize: 12, color: '#ef4444' },
-  dateEmpty:     { fontSize: 12, color: '#cbd5e1' },
-});
-
-const DOSE_KEYS = [
-  { key: 'day0',  label: 'Dose 1 (Day 0)'  },
-  { key: 'day3',  label: 'Dose 2 (Day 3)'  },
-  { key: 'day7',  label: 'Dose 3 (Day 7)'  },
-  { key: 'day14', label: 'Dose 4 (Day 14)' },
-  { key: 'day28', label: 'Dose 5 (Day 28)' },
-];
 
 export default function CaseDetail({ navigation, route }) {
   const { dark } = useThemeStore();
@@ -136,7 +74,7 @@ export default function CaseDetail({ navigation, route }) {
   const { caseId } = route.params;
   const [caseData,        setCaseData]        = useState(null);
   const [patientData,     setPatientData]     = useState(null);
-  const [vaccinationData, setVaccinationData] = useState(null);
+
   const [loading,         setLoading]         = useState(true);
   const [refreshing,      setRefreshing]      = useState(false);
   const [error,           setError]           = useState(null);
@@ -152,16 +90,9 @@ export default function CaseDetail({ navigation, route }) {
       const patients = patientRes.data.patients || [];
       const patient  = patients[0] || null;
       setPatientData(patient);
-      if (patient?.id) {
-        try {
-          const vacRes = await apiClient.get('/vaccinations/my');
-          const allVax = vacRes.data || [];
-         const linked = allVax.find(v =>
-          String(v.caseId) === String(caseData.caseId)
-        );
-          setVaccinationData(linked || null);
-        } catch (_) { setVaccinationData(null); }
-      }
+
+      
+
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load case details');
     } finally {
@@ -197,10 +128,24 @@ export default function CaseDetail({ navigation, route }) {
       <StatusBar barStyle={colors.statusBar} backgroundColor={colors.header} />
 
       {/* Blue Header */}
-      <View style={[styles.headerWrap, { backgroundColor: colors.header }]}>
-        <View style={styles.circle1} />
-        <View style={styles.circle2} />
-        <View style={styles.headerRow}>
+     <View style={[styles.headerWrap, { backgroundColor: colors.header }]}>
+  <Svg
+    width={200} height={210}
+    viewBox="0 0 100 100"
+    style={{ position: 'absolute', top: 0, right: 0 }}
+  >
+    <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.22)" />
+    <Path d="M50 33 L50 70 M32 52 L68 52" fill="none" stroke="rgba(0,188,212,0.15)" strokeWidth={5} strokeLinecap="round" />
+  </Svg>
+  <Svg
+    width={120} height={120}
+    viewBox="0 0 100 100"
+    style={{ position: 'absolute', bottom: 0, left: 0 }}
+  >
+    <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.15)" />
+  </Svg>
+  <View style={styles.headerRow}>
+
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <ChevronLeft color="#fff" size={22} />
           </TouchableOpacity>
@@ -251,81 +196,7 @@ export default function CaseDetail({ navigation, route }) {
           <InfoRow label="No. of Wounds" value={caseData?.numberOfWounds?.toString()} last colors={colors} />
         </Section>
 
-        <Section icon={Syringe}  title="PEP Vaccination Schedule" accentColor="#10b981" colors={colors}>
-          {patientData ? (
-            <>
-              <View style={styles.pepMetaRow}>
-                <View style={styles.pepMetaBox}>
-                  <Text style={styles.pepMetaLabel}>Wound Category</Text>
-                  <Text style={styles.pepMetaValue}>{patientData.woundCategory || '—'}</Text>
-                </View>
-                <View style={styles.pepMetaDivider} />
-                <View style={styles.pepMetaBox}>
-                  <Text style={styles.pepMetaLabel}>Treatment Status</Text>
-                  <StatusPill status={patientData.patientStatus} />
-                </View>
-              </View>
-
-              {vaccinationData && (
-                <View style={styles.vaccineInfoRow}>
-                  <View style={styles.vaccineInfoItem}>
-                    <Text style={styles.vaccineInfoLabel}>Vaccine Brand</Text>
-                    <Text style={styles.vaccineInfoValue}>{vaccinationData.vaccineBrand || '—'}</Text>
-                  </View>
-                  <View style={styles.vaccineInfoItem}>
-                    <Text style={styles.vaccineInfoLabel}>Injection Site</Text>
-                    <Text style={styles.vaccineInfoValue}>{vaccinationData.injectionSite || '—'}</Text>
-                  </View>
-                  <View style={styles.vaccineInfoItem}>
-                    <Text style={styles.vaccineInfoLabel}>Vax Status</Text>
-                    <StatusPill status={vaccinationData.status} />
-                  </View>
-                </View>
-              )}
-
-              <View style={styles.doseListWrap}>
-                {DOSE_KEYS.map(({ key, label }, i) => (
-                  <DoseRow
-                    key={key}
-                    label={label}
-                    administered={vaccinationData?.[key]}
-                    scheduled={vaccinationData?.[`${key}Scheduled`]}
-                    missed={vaccinationData?.[`${key}Missed`]}
-                    last={i === DOSE_KEYS.length - 1}
-                  />
-                ))}
-              </View>
-
-              {vaccinationData?.rigGiven && (
-                <View style={styles.rigBox}>
-                  <Syringe color="#7c3aed" size={14} />
-                  <View>
-                    <Text style={styles.rigLabel}>RIG Administered</Text>
-                    <Text style={styles.rigValue}>
-                      {vaccinationData.rigType || '—'}
-                      {vaccinationData.rigDosage ? `  ·  ${vaccinationData.rigDosage} IU` : ''}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {patientData.caseOutcome && (
-                <View style={styles.outcomeRow}>
-                  <Text style={styles.outcomeLabel}>Case Outcome</Text>
-                  <StatusPill status={patientData.caseOutcome} />
-                </View>
-              )}
-            </>
-          ) : (
-            <View style={styles.noPep}>
-              <Syringe color="#cbd5e1" size={32} />
-              <Text style={styles.noPepTitle}>No PEP Schedule Yet</Text>
-              <Text style={styles.noPepSub}>
-                The health center will assign your vaccination schedule shortly.
-              </Text>
-            </View>
-          )}
-        </Section>
+        
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -346,14 +217,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 52, paddingBottom: 18,
     overflow: 'hidden',
   },
-  circle1: {
-    position: 'absolute', width: 220, height: 220, borderRadius: 110,
-    backgroundColor: 'rgba(0,188,212,0.22)', top: -80, right: -60,
-  },
-  circle2: {
-    position: 'absolute', width: 140, height: 140, borderRadius: 70,
-    backgroundColor: 'rgba(0,188,212,0.15)', top: 10, right: 60,
-  },
+ 
   headerRow:  { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   backBtn: {
     width: 38, height: 38, borderRadius: 10,
@@ -372,37 +236,5 @@ const styles = StyleSheet.create({
   body:        { flex: 1 },
   bodyContent: { paddingHorizontal: 14, paddingTop: 16 },
 
-  pepMetaRow:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 12, marginBottom: 14, overflow: 'hidden' },
-  pepMetaBox:     { flex: 1, padding: 14 },
-  pepMetaDivider: { width: 1, height: 48, backgroundColor: '#e2e8f0' },
-  pepMetaLabel:   { fontSize: 11, color: '#94a3b8', marginBottom: 6 },
-  pepMetaValue:   { fontSize: 14, fontWeight: '700', color: '#1e293b' },
-
-  vaccineInfoRow: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
-    backgroundColor: '#f8fafc', borderRadius: 12, padding: 12, marginBottom: 14,
-  },
-  vaccineInfoItem:  { flex: 1, minWidth: 90 },
-  vaccineInfoLabel: { fontSize: 10, color: '#94a3b8', marginBottom: 4 },
-  vaccineInfoValue: { fontSize: 13, fontWeight: '600', color: '#1e293b' },
-
-  doseListWrap: { marginBottom: 8 },
-
-  rigBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#faf5ff', borderRadius: 12, padding: 14, marginBottom: 12,
-    borderWidth: 1, borderColor: '#e9d5ff',
-  },
-  rigLabel: { fontSize: 11, color: '#7c3aed', marginBottom: 2 },
-  rigValue: { fontSize: 13, fontWeight: '700', color: '#6d28d9' },
-
-  outcomeRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 4, paddingBottom: 8,
-  },
-  outcomeLabel: { fontSize: 12, color: '#64748b', fontWeight: '600' },
-
-  noPep:      { alignItems: 'center', paddingVertical: 24, gap: 8 },
-  noPepTitle: { fontSize: 14, fontWeight: '700', color: '#94a3b8' },
-  noPepSub:   { fontSize: 12, color: '#cbd5e1', textAlign: 'center', lineHeight: 18, paddingHorizontal: 16 },
+ 
 });

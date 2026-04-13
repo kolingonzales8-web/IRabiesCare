@@ -4,6 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator,
   RefreshControl, StatusBar, TextInput,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { FileText, Search, ChevronRight, ClipboardList } from 'lucide-react-native';
 import apiClient from '../api/client';
 import useThemeStore from '../store/themeStore';
@@ -61,13 +62,27 @@ export default function CasesScreen({ navigation }) {
       <StatusBar barStyle={colors.statusBar} backgroundColor={colors.header} />
 
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.header }]}>
-        <View style={styles.circle1} />
-        <View style={styles.circle2} />
-        <View style={styles.headerRow}>
+     <View style={[styles.header, { backgroundColor: colors.header }]}>
+  <Svg
+    width={200} height={210}
+    viewBox="0 0 100 100"
+    style={{ position: 'absolute', top: 0, right: 0 }}
+  >
+    <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.22)" />
+<Path d="M50 33 L50 70 M32 52 L68 52" fill="none" stroke="rgba(0,188,212,0.15)" strokeWidth={5} strokeLinecap="round" />
+</Svg>
+<Svg
+  width={120} height={120}
+  viewBox="0 0 100 100"
+  style={{ position: 'absolute', bottom: 0, left: 0 }}
+>
+  <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.15)" />
+  </Svg>
+  <View style={styles.headerRow}>
+
           <View>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>My Cases</Text>
-            <Text style={[styles.headerSub, { color: colors.subText }]}>{cases.length} registered case{cases.length !== 1 ? 's' : ''}</Text>
+           <Text style={styles.headerTitle}>My Cases</Text>
+          <Text style={styles.headerSub}>{cases.length} registered case{cases.length !== 1 ? 's' : ''}</Text>
           </View>
           <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('AddCase')}>
             <Text style={styles.addBtnText}>+ New Case</Text>
@@ -154,14 +169,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 52, paddingBottom: 16,
     overflow: 'hidden',
   },
-  circle1: {
-    position: 'absolute', width: 220, height: 220, borderRadius: 110,
-    backgroundColor: 'rgba(0,188,212,0.22)', top: -80, right: -60,
-  },
-  circle2: {
-    position: 'absolute', width: 140, height: 140, borderRadius: 70,
-    backgroundColor: 'rgba(0,188,212,0.15)', top: 10, right: 60,
-  },
+
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff' },
   headerSub:   { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 1 },

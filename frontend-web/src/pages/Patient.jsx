@@ -76,7 +76,8 @@ const ViewPanel = ({ id, onClose, onEdit }) => {
   const fmt = d => d ? new Date(d).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : '—';
   return (
     <PanelShell onClose={onClose}>
-      <div className="h-1 bg-gradient-to-r from-blue-600 to-indigo-600 shrink-0" />
+
+     
       <div className="shrink-0 h-[70px] flex items-center justify-between px-6 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <button onClick={onClose} className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700"><X size={16} /></button>
@@ -125,7 +126,7 @@ const EditPanel = ({ id, onClose, onSaved }) => {
   }, [id]);
   return (
     <PanelShell width="max-w-md" onClose={onClose}>
-      <div className="h-1 bg-gradient-to-r from-amber-400 to-orange-400 shrink-0" />
+     
       <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center"><Pencil size={14} className="text-amber-600" /></div>
@@ -210,7 +211,7 @@ const AddPanel = ({ onClose, onSaved }) => {
   const S = ({ field, opts }) => <div className="relative"><select value={form[field]} onChange={e => set(field)(e.target.value)} className={inp}>{opts.map(o => <option key={o} value={o}>{o}</option>)}</select><ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" /></div>;
   return (
     <PanelShell width="max-w-md" onClose={onClose}>
-      <div className="h-1 bg-gradient-to-r from-emerald-400 to-teal-400 shrink-0" />
+      
       <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center"><Plus size={14} className="text-emerald-600" /></div>

@@ -272,8 +272,10 @@ export default function AddCaseScreen({ navigation }) {
   // ── Validation ──
   const validateStep = () => {
   if (step === 0) {
-    if (!firstName || !lastName || !dob || !sex || !municipality || !contact)
-      return 'Please fill in all required personal information fields.';
+
+    if (!firstName || !lastName || !dob || !sex || !municipality || !contact || !email)
+    return 'Please fill in all required personal information fields.';
+
     if (municipality === 'Others (Outside Bohol)' && !customAddress)
       return 'Please enter your full address.';
     if (municipality !== 'Others (Outside Bohol)' && !barangay)
@@ -284,10 +286,11 @@ export default function AddCaseScreen({ navigation }) {
     if (!/^\d{11}$/.test(contactClean))
       return 'Contact number must be exactly 11 digits (numbers only).';
 
-    // ✅ Email — valid format if provided
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      return 'Please enter a valid email address (e.g. name@email.com).';
+    // ✅ Email — required and must be valid format
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  return 'Please enter a valid email address (e.g. name@email.com).';
   }
+  
   if (step === 1 && (!exposureDate || !exposureTime || !placeOfIncident || !exposureType || !bodyPart))
     return 'Please fill in all exposure information fields.';
   if (step === 2 && (!animalSpecies || !animalOwnership || !animalVaccinated))
@@ -416,7 +419,7 @@ export default function AddCaseScreen({ navigation }) {
             keyboardType="number-pad"
             colors={colors} 
           />
-          <Field label="Email Address"    placeholder="email@example.com" value={email} onChange={setEmail} keyboardType="email-address" colors={colors} />
+          <Field label="Email Address *"  placeholder="email@example.com" value={email} onChange={setEmail} keyboardType="email-address" colors={colors} />
         </>
       );
 

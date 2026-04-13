@@ -67,14 +67,14 @@ const OnlineDot = ({ isOnline, lastSeen }) => {
       <span className="relative flex w-1.5 h-1.5">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
         <span className="relative inline-flex rounded-full w-1.5 h-1.5 bg-emerald-500" />
-      </span>
+      </span> 
       Online
     </span>
   ) : (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200"
       title={lastSeen ? `Last seen: ${new Date(lastSeen).toLocaleString()}` : ''}>
       <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-      {lastSeen ? timeAgo(lastSeen) : 'Inactive'}
+      Offline
     </span>
   );
 };
@@ -136,10 +136,14 @@ const PanelShell = ({ children, onBackdropClick }) => (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[1000]"
       style={{ animation: 'fadeIn 0.2s ease' }}
       onClick={onBackdropClick} />
-    <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-white z-[1001] flex flex-col shadow-2xl overflow-hidden"
-      style={{ animation: 'slideInRight 0.28s cubic-bezier(.4,0,.2,1)' }}>
-      {children}
+    <div className="fixed inset-0 z-[1001] flex items-center justify-center p-4">
+      <div className="relative w-full max-w-lg bg-white flex flex-col shadow-2xl overflow-hidden rounded-2xl"
+        style={{ maxHeight: '90vh', animation: 'fadeScaleIn 0.2s cubic-bezier(.4,0,.2,1)' }}
+        onClick={e => e.stopPropagation()}>
+        {children}
+      </div>
     </div>
+    <style>{`@keyframes fadeScaleIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}`}</style>
   </>
 );
 
@@ -315,6 +319,172 @@ const UserPanel = ({ editUser = null, onClose, onSaved }) => {
   );
 };
 
+
+/* ─────────────────────────────────────
+   STAFF DETAIL PANEL
+───────────────────────────────────── */
+const StaffPanel = ({ staff, onClose, onEdit }) => {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+
+ useEffect(() => {
+  if (!staff) return;
+  setLoading(true);
+  
+  console.log('FULL STAFF OBJECT:', JSON.stringify(staff));
+  
+  apiClient.get(`/cases`, { params: { limit: 100 } })
+    .then(res => {
+      console.log('ALL CASES SAMPLE:', JSON.stringify(res.data.cases?.[0]));
+      // Filter client-side temporarily to see if it works
+      const allCases = res.data.cases || [];
+      const filtered = allCases.filter(c => 
+        c.assignedTo === staff.id || 
+        c.assignedTo === staff._id ||
+        c.assignedTo?._id === staff.id ||
+        c.assignedTo?._id === staff._id ||
+        c.assignedTo?.id === staff.id
+      );
+      console.log('FILTERED CASES:', filtered.length);
+      setData({ cases: filtered });
+    })
+    .catch(() => setData(null))
+    .finally(() => setLoading(false));
+}, [staff]);
+
+  const cases       = data?.cases || [];
+  const activeCases = cases.filter(c => c.status !== 'Completed');
+  const totalCases  = cases.length;
+
+  const timeAgo = (date) => {
+    if (!date) return 'Never';
+    const diff = Math.floor((Date.now() - new Date(date)) / 1000);
+    if (diff < 60)    return 'Just now';
+    if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  };
+
+  const STATUS_COLOR = {
+    Pending:   'bg-orange-100 text-orange-700 border-orange-200',
+    Ongoing:   'bg-blue-100 text-blue-700 border-blue-200',
+    Completed: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    Urgent:    'bg-red-100 text-red-700 border-red-200',
+  };
+
+  return (
+    <PanelShell onBackdropClick={onClose}>
+      <div className="h-1 w-full shrink-0 bg-gradient-to-r from-sky-500 to-blue-600" />
+
+      {/* Header */}
+      <div className="shrink-0 border-b border-slate-100 px-6 h-16 flex items-center justify-between bg-white">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all">
+            <X size={16} />
+          </button>
+          <div>
+            <p className="text-sm font-bold text-slate-800">Staff Profile</p>
+            <p className="text-[11px] text-slate-400">{staff.name}</p>
+          </div>
+        </div>
+        <button onClick={() => onEdit(staff)}
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition-all shadow-sm hover:-translate-y-0.5">
+          <Pencil size={13} /> Edit
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto bg-slate-50/60">
+        <div className="px-6 py-5 space-y-4">
+
+          {/* Profile Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <div className="flex items-center gap-4">
+              <Avatar name={staff.name} size="lg" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-slate-800">{staff.name}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{staff.email}</p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <RoleBadge role={staff.role} />
+                  <OnlineDot isOnline={staff.isOnline} lastSeen={staff.lastSeen} />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-3">
+              <div className="bg-slate-50 rounded-xl p-3 text-center">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Last Seen</p>
+                <p className="text-sm font-semibold text-slate-700">{timeAgo(staff.lastSeen)}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3 text-center">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Account</p>
+                <p className={`text-sm font-semibold ${staff.isActive ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {staff.isActive ? 'Active' : 'Deactivated'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Case Stats */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Total Cases',  value: totalCases,          color: 'from-blue-600 to-blue-500'     },
+              { label: 'Active',       value: activeCases.length,  color: 'from-violet-600 to-violet-500' },
+              { label: 'Completed',    value: totalCases - activeCases.length, color: 'from-emerald-500 to-green-400' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className={`bg-gradient-to-br ${color} rounded-2xl p-4 text-white text-center shadow-sm`}>
+                <p className="text-[10px] font-bold text-white/70 uppercase tracking-wider mb-1">{label}</p>
+                {loading
+                  ? <div className="h-7 w-8 bg-white/20 rounded-lg animate-pulse mx-auto" />
+                  : <p className="text-3xl font-bold leading-none">{value}</p>}
+              </div>
+            ))}
+          </div>
+
+          {/* Active Cases List */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/80">
+              <div className="flex items-center gap-2">
+                <UserCheck size={14} className="text-slate-600" />
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Assigned Cases</span>
+              </div>
+              {!loading && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                  {activeCases.length} active
+                </span>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 size={20} className="animate-spin text-blue-400" />
+              </div>
+            ) : activeCases.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 gap-2">
+                <Users className="w-10 h-10 opacity-10" />
+                <p className="text-sm text-slate-400">No active cases assigned</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                {activeCases.map(c => (
+                  <div key={c._id} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{c.fullName}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Case #{c.caseId}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${STATUS_COLOR[c.status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                      {c.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </PanelShell>
+  );
+};
 /* ─────────────────────────────────────
    MAIN PAGE
 ───────────────────────────────────── */
@@ -331,8 +501,9 @@ export default function UserManagement() {
   const [addOpen, setAddOpen]       = useState(false);
   const [editUser, setEditUser]     = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+  const [viewUser, setViewUser] = useState(null);
 
-  const closeAll = () => { setAddOpen(false); setEditUser(null); };
+  const closeAll = () => { setAddOpen(false); setEditUser(null); setViewUser(null); };
 
   const fetchUsers = useCallback(async () => {
     setLoading(true); setError(null);
@@ -393,9 +564,16 @@ export default function UserManagement() {
     <div className="min-h-full bg-slate-100 -m-6 lg:-m-8 p-6 lg:p-8">
       <style>{SLIDE_IN}</style>
 
-      {(addOpen || editUser) && (
-        <UserPanel editUser={editUser} onClose={closeAll} onSaved={() => { closeAll(); fetchUsers(); }} />
-      )}
+     {(addOpen || editUser) && (
+  <UserPanel editUser={editUser} onClose={closeAll} onSaved={() => { closeAll(); fetchUsers(); }} />
+)}
+{viewUser && !editUser && !addOpen && (
+  <StaffPanel
+    staff={viewUser}
+    onClose={closeAll}
+    onEdit={(u) => { setViewUser(null); setEditUser(u); }}
+  />
+)}
 
       {/* Delete Confirm */}
       {deleteId && (
@@ -594,8 +772,16 @@ export default function UserManagement() {
                   </td>
                   <td className="px-5 py-4 text-sm text-slate-500 whitespace-nowrap">{formatDate(u.createdAt)}</td>
                   <td className="px-5 py-4">
-                    <div className="flex items-center gap-1.5">
-                      <button onClick={() => { closeAll(); setEditUser(u); }}
+
+                   <div className="flex items-center gap-1.5">
+                    {u.role === 'staff' && (
+                      <button onClick={() => { closeAll(); setViewUser(u); }}
+                        className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all hover:scale-105 ${viewUser?.id === u.id ? 'bg-sky-500 border-sky-500 text-white' : 'bg-sky-50 border-sky-100 text-sky-500 hover:bg-sky-100'}`}>
+                        <Eye size={13} />
+                      </button>
+                    )}
+                    <button onClick={() => { closeAll(); setEditUser(u); }}
+
                         className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-500 hover:bg-amber-100 hover:scale-105 transition-all">
                         <Pencil size={13} />
                       </button>

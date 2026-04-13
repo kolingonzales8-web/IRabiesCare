@@ -4,6 +4,7 @@ import {
   TouchableOpacity, Alert, StatusBar, Modal,
   TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import {
   User, Mail, Shield, LogOut, ChevronRight,
   FileText, Syringe, Lock, Info, Eye, EyeOff, X,
@@ -293,10 +294,24 @@ export default function ProfileScreen({ navigation }) {
       />
 
       {/* Blue header */}
-      <View style={[styles.header, { backgroundColor: colors.header }]}>
-        <View style={styles.circle1} />
-        <View style={styles.circle2} />
-        <View style={styles.avatar}>
+     <View style={[styles.header, { backgroundColor: colors.header }]}>
+  <Svg
+    width={200} height={210}
+    viewBox="0 0 100 100"
+    style={{ position: 'absolute', top: 0, right: 0 }}
+  >
+    <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.22)" />
+    <Path d="M50 33 L50 70 M32 52 L68 52" fill="none" stroke="rgba(0,188,212,0.15)" strokeWidth={5} strokeLinecap="round" />
+  </Svg>
+  <Svg
+    width={120} height={120}
+    viewBox="0 0 100 100"
+    style={{ position: 'absolute', bottom: 0, left: 0 }}
+  >
+    <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.15)" />
+  </Svg>
+  <View style={styles.avatar}>
+
           <Text style={styles.avatarText}>{initial}</Text>
         </View>
         <Text style={styles.userName}>{user?.name || 'Patient'}</Text>
@@ -382,14 +397,7 @@ const styles = StyleSheet.create({
     paddingTop: 52, paddingBottom: 28, paddingHorizontal: 20,
     overflow: 'hidden',
   },
-  circle1: {
-    position: 'absolute', width: 220, height: 220, borderRadius: 110,
-    backgroundColor: 'rgba(0,188,212,0.22)', top: -80, right: -60,
-  },
-  circle2: {
-    position: 'absolute', width: 140, height: 140, borderRadius: 70,
-    backgroundColor: 'rgba(0,188,212,0.15)', top: 10, right: 60,
-  },
+ 
   avatar: {
     width: 78, height: 78, borderRadius: 39,
     backgroundColor: 'rgba(255,255,255,0.25)',

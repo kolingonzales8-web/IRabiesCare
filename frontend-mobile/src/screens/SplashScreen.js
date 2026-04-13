@@ -47,10 +47,34 @@ export default function SplashScreen({ onComplete, duration = 3000 }) {
     <Animated.View style={[styles.container, { opacity: fadeOut }]}>
 
       {/* ── Background decorative circles — matching Dashboard header ── */}
-      <View style={styles.circle1} />
-      <View style={styles.circle2} />
-      <View style={styles.circle3} />
-      <View style={styles.circle4} />
+    <Svg
+  width={320} height={340}
+  viewBox="0 0 100 100"
+  style={{ position: 'absolute', top: -40, right: -60 }}
+>
+  <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.22)" />
+</Svg>
+<Svg
+  width={200} height={200}
+  viewBox="0 0 100 100"
+  style={{ position: 'absolute', top: 80, right: 20 }}
+>
+  <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.10)" />
+</Svg>
+<Svg
+  width={180} height={180}
+  viewBox="0 0 100 100"
+  style={{ position: 'absolute', bottom: -20, left: -40 }}
+>
+  <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(255,255,255,0.06)" />
+</Svg>
+<Svg
+  width={120} height={120}
+  viewBox="0 0 100 100"
+  style={{ position: 'absolute', bottom: 100, right: -20 }}
+>
+  <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.12)" />
+</Svg>
 
       {/* ── Logo ── */}
       <Animated.View style={[
@@ -62,20 +86,27 @@ export default function SplashScreen({ onComplete, duration = 3000 }) {
 
         {/* White logo circle */}
         <View style={styles.logoCircle}>
-           <Svg width={140} height={140} viewBox="255 55 170 250">
-          <Path d="M340 55 L425 88 L425 202 Q425 268 340 300 Q255 268 255 202 L255 88 Z" fill="rgba(255,255,255,0.9)" stroke="rgba(255,255,255,0.5)" strokeWidth="2"/>
-          <Path d="M340 72 L410 100 L410 200 Q410 254 340 282 Q270 254 270 200 L270 100 Z" fill="rgba(255,255,255,0.7)"/>
-          <Rect x="322" y="118" width="36" height="100" rx="6" fill="#1a5fa8" opacity="0.95"/>
-          <Rect x="292" y="148" width="96" height="36" rx="6" fill="#1a5fa8" opacity="0.95"/>
-          <Rect x="335" y="128" width="10" height="60" rx="3" fill="white"/>
-          <Rect x="330" y="155" width="20" height="24" rx="2" fill="#5ba4e6"/>
-          <Line x1="340" y1="188" x2="340" y2="200" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-          <Circle cx="302" cy="158" r="5" fill="white"/>
-          <Circle cx="378" cy="158" r="5" fill="white"/>
-          <Circle cx="302" cy="172" r="5" fill="white"/>
-          <Circle cx="378" cy="172" r="5" fill="white"/>
-        </Svg>
-      </View>
+          <Svg width={140} height={140} viewBox="0 0 100 100">
+            {/* Shield shape */}
+            <Path
+              d="M50 5 L90 20 L90 55 Q90 80 50 95 Q10 80 10 55 L10 20 Z"
+              fill="rgba(255,255,255,0.95)"
+              stroke="rgba(255,255,255,0.4)"
+              strokeWidth="1"
+            />
+            {/* Inner shield */}
+            <Path
+              d="M50 12 L83 25 L83 54 Q83 74 50 87 Q17 74 17 54 L17 25 Z"
+              fill="rgba(255,255,255,0.6)"
+            />
+            {/* Vertical bar of cross */}
+            <Rect x="44" y="30" width="12" height="38" rx="3" fill="#1565C0" opacity="0.95"/>
+            {/* Horizontal bar of cross */}
+            <Rect x="31" y="43" width="38" height="12" rx="3" fill="#1565C0" opacity="0.95"/>
+            {/* Cross shine */}
+            <Rect x="44" y="30" width="4" height="38" rx="2" fill="rgba(255,255,255,0.3)"/>
+          </Svg>
+        </View>
       </Animated.View>
 
       {/* ── Brand text ── */}
@@ -119,38 +150,19 @@ const styles = StyleSheet.create({
 
   // ── Decorative circles — same style as Dashboard header ──
   // Large cyan circle top-right (matches bgCircle1)
-  circle1: {
-    position: 'absolute',
-    width: 320, height: 320, borderRadius: 160,
-    backgroundColor: 'rgba(0,188,212,0.22)',
-    top: -100, right: -100,
-  },
-  // Medium cyan circle mid-right (matches bgCircle2)
-  circle2: {
-    position: 'absolute',
-    width: 200, height: 200, borderRadius: 100,
-    backgroundColor: 'rgba(0,188,212,0.15)',
-    top: 60, right: 40,
-  },
-  // Small circle bottom-left
-  circle3: {
-    position: 'absolute',
-    width: 180, height: 180, borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    bottom: -40, left: -40,
-  },
-  // Extra accent circle bottom-right
-  circle4: {
-    position: 'absolute',
-    width: 120, height: 120, borderRadius: 60,
-    backgroundColor: 'rgba(0,188,212,0.12)',
-    bottom: 80, right: -30,
-  },
+ 
 
   // ── Logo ──
   logoWrapper: {
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 32,
+  },
+  logoCircle: {
+    width: 140, height: 140, borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)',
+    overflow: 'hidden',
   },
   glow: {
     position: 'absolute',

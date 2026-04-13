@@ -4,7 +4,8 @@ import {
   KeyboardAvoidingView, Platform, ScrollView,
   ActivityIndicator, Alert, Animated, StatusBar,
 } from 'react-native';
-import { Mail, Lock, Eye, EyeOff, Shield, User, UserPlus } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, User, UserPlus } from 'lucide-react-native';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { registerUser } from '../api/auth';
 import useAuthStore from '../store/authStore';
 
@@ -124,11 +125,13 @@ export default function RegisterScreen({ navigation }) {
   }
   setLoading(true);
   try {
-    const res = await registerUser({ name, email, password });
-    await setAuth(res.data.user, res.data.token);
-    navigation.replace('Dashboard');
+    await registerUser({ name, email, password });
+    Alert.alert('Registration Successful', 'Your account has been created. Please sign in.', [
+      { text: 'OK', onPress: () => navigation.replace('Login') }
+    ]);
   } catch (err) {
-    // ✅ Show exact backend error message
+    console.log('FULL ERROR:', JSON.stringify(err.response?.data));
+    console.log('STATUS:', err.response?.status);
     const message = err.response?.data?.message || 'Something went wrong. Please try again.';
     Alert.alert('Registration Failed', message);
   } finally {
@@ -143,9 +146,7 @@ export default function RegisterScreen({ navigation }) {
     >
       <StatusBar barStyle="light-content" backgroundColor="#1565C0" />
 
-      <View style={styles.circle1} />
-      <View style={styles.circle2} />
-      <View style={styles.circle3} />
+     
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -156,17 +157,32 @@ export default function RegisterScreen({ navigation }) {
         <Animated.View style={[styles.brandSection, { opacity: fadeAnim, transform: [{ scale: logoScale }] }]}>
           <Animated.View style={[styles.glowRing, { transform: [{ scale: pulseAnim }] }]} />
           <View style={styles.logoCircle}>
-            <View style={styles.shieldWrap}>
-              <Shield color="#1565C0" fill="#1565C0" size={50} />
-              <View style={styles.crossH} />
-              <View style={styles.crossV} />
-              <View style={styles.redDot}>
-                <View style={styles.dotH} />
-                <View style={styles.dotV} />
-              </View>
-            </View>
+            <Svg width={90} height={90} viewBox="0 0 100 100">
+              {/* Shield shape */}
+              <Path
+                d="M50 5 L90 20 L90 55 Q90 80 50 95 Q10 80 10 55 L10 20 Z"
+                fill="rgba(21,101,192,0.12)"
+                stroke="#1565C0"
+                strokeWidth="1.5"
+              />
+              {/* Inner shield */}
+              <Path
+                d="M50 12 L83 25 L83 54 Q83 74 50 87 Q17 74 17 54 L17 25 Z"
+                fill="rgba(21,101,192,0.07)"
+              />
+              {/* Vertical bar of cross */}
+              <Rect x="44" y="30" width="12" height="38" rx="3" fill="#1565C0" opacity="0.95"/>
+              {/* Horizontal bar of cross */}
+              <Rect x="31" y="43" width="38" height="12" rx="3" fill="#1565C0" opacity="0.95"/>
+              {/* Cross shine */}
+              <Rect x="44" y="30" width="4" height="38" rx="2" fill="rgba(255,255,255,0.4)"/>
+            </Svg>
           </View>
-          <Text style={styles.brandName}>iRabiesCare</Text>
+          <Text style={styles.brandName}>
+            <Text style={{ fontStyle: 'italic', color: '#ff6b6b' }}>i</Text>
+            <Text style={{ color: '#ffffff' }}>Rabies</Text>
+            <Text style={{ color: '#90caf9' }}>Care</Text>
+          </Text>
           <Text style={styles.brandSub}>CASE MANAGEMENT SYSTEM</Text>
         </Animated.View>
 
@@ -204,17 +220,6 @@ export default function RegisterScreen({ navigation }) {
               onFocus={() => setPassFocused(true)}
               onBlur={() => setPassFocused(false)}
             />
-            <InputField
-              label="Confirm Password" value={confirmPass} onChangeText={setConfirmPass}
-              placeholder="Re-enter your password" icon={Lock}
-              secureTextEntry showToggle showing={showConfirm}
-              onToggle={() => setShowConfirm(v => !v)}
-              inputRef={confirmRef} returnKeyType="done"
-              focused={confirmFocused} editable={!loading}
-              onFocus={() => setConfirmFocused(true)}
-              onBlur={() => setConfirmFocused(false)}
-            />
-
             {/* Password strength */}
             {password.length > 0 && (
               <View style={styles.strengthRow}>
@@ -233,6 +238,19 @@ export default function RegisterScreen({ navigation }) {
                 </Text>
               </View>
             )}
+
+            <InputField
+              label="Confirm Password" value={confirmPass} onChangeText={setConfirmPass}
+              placeholder="Re-enter your password" icon={Lock}
+              secureTextEntry showToggle showing={showConfirm}
+              onToggle={() => setShowConfirm(v => !v)}
+              inputRef={confirmRef} returnKeyType="done"
+              focused={confirmFocused} editable={!loading}
+              onFocus={() => setConfirmFocused(true)}
+              onBlur={() => setConfirmFocused(false)}
+            />
+
+          
 
             <TouchableOpacity
               style={[styles.signInBtn, loading && styles.signInBtnDisabled]}
@@ -281,18 +299,7 @@ export default function RegisterScreen({ navigation }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#1565C0' },
 
-  circle1: {
-    position: 'absolute', width: 320, height: 320, borderRadius: 160,
-    backgroundColor: 'rgba(0,188,212,0.22)', top: -100, right: -100,
-  },
-  circle2: {
-    position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    backgroundColor: 'rgba(0,188,212,0.15)', top: 60, right: 40,
-  },
-  circle3: {
-    position: 'absolute', width: 180, height: 180, borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.06)', bottom: -40, left: -40,
-  },
+ 
 
   scroll: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 24, paddingTop: 56, paddingBottom: 36 },
 
@@ -303,28 +310,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,188,212,0.2)',
   },
   logoCircle: {
-    width: 112, height: 112, borderRadius: 56, backgroundColor: '#fff',
+    width: 112, height: 112, borderRadius: 56,
+    backgroundColor: '#fff',
     alignItems: 'center', justifyContent: 'center', marginBottom: 18,
     shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3, shadowRadius: 20, elevation: 14,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.6)',
   },
-  shieldWrap: { width: 66, height: 66, alignItems: 'center', justifyContent: 'center' },
-  crossH: {
-    position: 'absolute', width: 20, height: 4, backgroundColor: '#fff',
-    borderRadius: 2, top: '50%', marginTop: -2,
-  },
-  crossV: {
-    position: 'absolute', width: 4, height: 20, backgroundColor: '#fff',
-    borderRadius: 2, left: '50%', marginLeft: -2, top: '24%',
-  },
-  redDot: {
-    position: 'absolute', top: 3, right: 3, width: 15, height: 15,
-    borderRadius: 7.5, backgroundColor: '#e74c3c',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  dotH: { position: 'absolute', width: 8, height: 2, backgroundColor: '#fff', borderRadius: 1 },
-  dotV: { position: 'absolute', width: 2, height: 8, backgroundColor: '#fff', borderRadius: 1 },
-  brandName: { fontSize: 36, fontWeight: '700', color: '#fff', letterSpacing: 0.4, marginBottom: 5 },
+  brandName: { fontSize: 36, fontWeight: '700', letterSpacing: 0.4, marginBottom: 5 },
   brandSub:  { fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: 3.5 },
 
   card: {

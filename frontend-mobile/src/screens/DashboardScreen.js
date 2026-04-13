@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { WebView } from 'react-native-webview';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, ActivityIndicator, RefreshControl,
-  Animated, StatusBar, Dimensions, Platform,
+  Animated, StatusBar, Dimensions, Platform, Linking, Image,
 } from 'react-native';
 import {
   Shield, Plus, FileText, Syringe, Clock,
@@ -125,6 +124,8 @@ const NotificationBanner = ({ dose, onDismiss }) => {
   );
 };
 
+
+
 /* ── FAB group (AI button + Add button) ── */
 const FABGroup = ({ onAddPress, onChatPress }) => {
   const addScale  = useRef(new Animated.Value(1)).current;
@@ -170,6 +171,242 @@ const FABGroup = ({ onAddPress, onChatPress }) => {
         </TouchableOpacity>
       </Animated.View>
     </View>
+  );
+};
+
+/* ── Notification Modal ── */
+const NotificationModal = ({ visible, onClose, urgentDoses, allUpcoming, todayDoses, myCases, onMarkAllRead }) => {
+  const slideAnim = useRef(new Animated.Value(-400)).current;
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 60, useNativeDriver: true }),
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 250, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: -400, duration: 200, useNativeDriver: true }),
+        Animated.timing(fadeAnim,  { toValue: 0,    duration: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const pendingCases = myCases.filter(c => c.status?.toLowerCase() === 'pending');
+  const totalNotifs  = urgentDoses.length + pendingCases.length;
+
+  if (!visible) return null;  // ← KEY FIX: don't render at all when hidden
+
+  return (
+    <>
+      {/* Backdrop */}
+      <Animated.View
+        style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 1000,
+          opacity: fadeAnim,
+        }}
+      >
+        <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
+      </Animated.View>
+
+      {/* Modal Panel */}
+      <Animated.View style={{
+        position: 'absolute', top: 90, right: 16, left: 16,
+        backgroundColor: '#fff', borderRadius: 20, zIndex: 1001,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18, shadowRadius: 20, elevation: 20,
+        transform: [{ translateY: slideAnim }],
+        opacity: fadeAnim,
+        maxHeight: 420,
+      }}>
+        {/* Header */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0f2fe',
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Bell color="#1565C0" size={18} />
+            <Text style={{ fontSize: 15, fontWeight: '800', color: '#1e293b' }}>Notifications</Text>
+            {totalNotifs > 0 && (
+              <View style={{
+                backgroundColor: '#ef4444', borderRadius: 10,
+                paddingHorizontal: 7, paddingVertical: 2,
+              }}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: '#fff' }}>{totalNotifs}</Text>
+              </View>
+            )}
+          </View>
+
+        {(urgentDoses.length > 0 || todayDoses.length > 0 || allUpcoming.length > 0) && (
+          <TouchableOpacity onPress={onMarkAllRead}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#1565C0' }}>Mark all read</Text>
+          </TouchableOpacity>
+        )}
+
+
+          <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <X color="#94a3b8" size={18} />
+          </TouchableOpacity>
+
+        </View>
+
+        <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
+
+          {/* Today's Vaccinations */}
+{todayDoses.length > 0 && (
+  <View style={{ paddingHorizontal: 14, paddingTop: 12 }}>
+    <Text style={{ fontSize: 10, fontWeight: '800', color: '#10b981', letterSpacing: 1, marginBottom: 8 }}>
+      💉 YOUR VACCINATION TODAY
+    </Text>
+    {todayDoses.map((dose, i) => (
+      <View key={i} style={{
+        flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+        backgroundColor: '#f0fdf4', borderRadius: 12, padding: 12,
+        marginBottom: 8, borderWidth: 1, borderColor: '#bbf7d0',
+      }}>
+        <View style={{
+          width: 36, height: 36, borderRadius: 10,
+          backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Syringe color="#fff" size={16} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{dose.label}</Text>
+          <Text style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+            Case #{dose.caseId} · {dose.caseName}
+          </Text>
+          <Text style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>
+            🕐 {fmtTime(dose.date)} · {dose.vaccineBrand || '—'}
+          </Text>
+          <View style={{
+            alignSelf: 'flex-start', marginTop: 5,
+            backgroundColor: '#10b981',
+            paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+          }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>⚡ Scheduled Today</Text>
+          </View>
+        </View>
+      </View>
+    ))}
+  </View>
+)}
+          {/* Urgent Doses */}
+          {urgentDoses.length > 0 && (
+            <View style={{ paddingHorizontal: 14, paddingTop: 12 }}>
+              <Text style={{ fontSize: 10, fontWeight: '800', color: '#ef4444', letterSpacing: 1, marginBottom: 8 }}>
+                🔴 URGENT — VACCINATION DUE
+              </Text>
+              {urgentDoses.map((dose, i) => (
+                <View key={i} style={{
+                  flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+                  backgroundColor: '#fff5f5', borderRadius: 12, padding: 12,
+                  marginBottom: 8, borderWidth: 1, borderColor: '#fecaca',
+                }}>
+                  <View style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Syringe color="#fff" size={16} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{dose.label}</Text>
+                    <Text style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Case #{dose.caseId} · {dose.caseName}</Text>
+                    <Text style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>📅 {fmtDate(dose.date)} · {fmtTime(dose.date)}</Text>
+                    <View style={{
+                      alignSelf: 'flex-start', marginTop: 5,
+                      backgroundColor: daysUntil(dose.date) === 'Today' ? '#ef4444' : '#f59e0b',
+                      paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+                    }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>
+                        {daysUntil(dose.date) === 'Today' ? '⚡ Due Today!' : '⏰ Due Tomorrow!'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Upcoming Vaccinations */}
+          {allUpcoming.filter(d => !['Today','Tomorrow'].includes(daysUntil(d.date))).length > 0 && (
+            <View style={{ paddingHorizontal: 14, paddingTop: 4 }}>
+              <Text style={{ fontSize: 10, fontWeight: '800', color: '#0369a1', letterSpacing: 1, marginBottom: 8 }}>
+                💉 UPCOMING VACCINATIONS
+              </Text>
+              {allUpcoming.filter(d => !['Today','Tomorrow'].includes(daysUntil(d.date))).map((dose, i) => (
+                <View key={i} style={{
+                  flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+                  backgroundColor: '#f0f9ff', borderRadius: 12, padding: 12,
+                  marginBottom: 8, borderWidth: 1, borderColor: '#bae6fd',
+                }}>
+                  <View style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Syringe color="#fff" size={16} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{dose.label}</Text>
+                    <Text style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Case #{dose.caseId} · {dose.caseName}</Text>
+                    <Text style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>📅 {fmtDate(dose.date)}</Text>
+                    <View style={{
+                      alignSelf: 'flex-start', marginTop: 5, backgroundColor: '#2563eb',
+                      paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+                    }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>{daysUntil(dose.date)}</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Pending Cases */}
+          {pendingCases.length > 0 && (
+            <View style={{ paddingHorizontal: 14, paddingTop: 4 }}>
+              <Text style={{ fontSize: 10, fontWeight: '800', color: '#f59e0b', letterSpacing: 1, marginBottom: 8 }}>
+                📋 PENDING CASES
+              </Text>
+              {pendingCases.map((c, i) => (
+                <View key={i} style={{
+                  flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+                  backgroundColor: '#fffbeb', borderRadius: 12, padding: 12,
+                  marginBottom: 8, borderWidth: 1, borderColor: '#fde68a',
+                }}>
+                  <View style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    backgroundColor: '#f59e0b', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <FileText color="#fff" size={16} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>{c.fullName || `Case ${i + 1}`}</Text>
+                    <Text style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Case #{c.caseId} · Awaiting review</Text>
+                    {c.dateOfExposure && (
+                      <Text style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>📅 Exposed: {fmtDate(c.dateOfExposure)}</Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Empty State */}
+          {totalNotifs === 0 && allUpcoming.length === 0 && todayDoses.length === 0 && (
+            <View style={{ alignItems: 'center', paddingVertical: 30, gap: 8 }}>
+              <Text style={{ fontSize: 32 }}>🎉</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#1e293b' }}>All caught up!</Text>
+              <Text style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', paddingHorizontal: 20 }}>
+                No pending notifications at the moment.
+              </Text>
+            </View>
+          )}
+          <View style={{ height: 14 }} />
+        </ScrollView>
+      </Animated.View>
+    </>
   );
 };
 
@@ -227,14 +464,22 @@ const TIPS = [
 const TipsCarousel = () => {
   const scrollRef = useRef(null);
   const currentIndex = useRef(0);
+  const [activeIndex, setActiveIndex] = useState(0); // ← add this
 
   useEffect(() => {
     const interval = setInterval(() => {
       currentIndex.current = (currentIndex.current + 1) % TIPS.length;
+      setActiveIndex(currentIndex.current); // ← update state
       scrollRef.current?.scrollTo({ x: currentIndex.current * (SW - 28), animated: true });
     }, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleScroll = (e) => {
+    const index = Math.round(e.nativeEvent.contentOffset.x / (SW - 28));
+    setActiveIndex(index);          // ← sync when user manually swipes
+    currentIndex.current = index;
+  };
 
   return (
     <View style={{ marginBottom: 16 }}>
@@ -249,6 +494,7 @@ const TipsCarousel = () => {
         scrollEventThrottle={16}
         snapToInterval={SW - 28}
         decelerationRate="fast"
+        onScroll={handleScroll}  // ← add this
       >
         {TIPS.map((item, index) => (
           <View
@@ -277,16 +523,17 @@ const TipsCarousel = () => {
           </View>
         ))}
       </ScrollView>
-      {/* Dot indicators */}
+
+      {/* Dot indicators — now reactive */}
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 }}>
         {TIPS.map((_, i) => (
           <View
             key={i}
             style={{
-              width: i === 0 ? 16 : 6,
+              width: i === activeIndex ? 16 : 6,  // ← use activeIndex
               height: 6,
               borderRadius: 3,
-              backgroundColor: i === 0 ? '#0369a1' : '#bae6fd',
+              backgroundColor: i === activeIndex ? '#0369a1' : '#bae6fd',  // ← use activeIndex
             }}
           />
         ))}
@@ -345,30 +592,43 @@ const AwarenessVideoCard = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Video Player — Platform-aware */}
+      {/* Video Thumbnail — tap to open YouTube */}
       {expanded && (
-        <View style={{ height: 210 }}>
-          {Platform.OS === 'web' ? (
-            // Fallback for web browser
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f9ff', gap: 8 }}>
-              <Text style={{ fontSize: 32 }}>📱</Text>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369a1' }}>
-                Open in Expo Go
-              </Text>
-              <Text style={{ fontSize: 11, color: '#64748b', textAlign: 'center', paddingHorizontal: 20 }}>
-                Video playback is only available on iOS and Android devices.
-              </Text>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => Linking.openURL('https://www.youtube.com/watch?v=_hchkrLTr98')}
+          style={{ height: 210, backgroundColor: '#000' }}
+        >
+          {/* Thumbnail Image */}
+          <Image
+            source={{ uri: 'https://img.youtube.com/vi/_hchkrLTr98/hqdefault.jpg' }}
+            style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+          />
+
+          {/* Dark overlay */}
+          <View style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.35)',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            {/* Play button */}
+            <View style={{
+              width: 64, height: 64, borderRadius: 32,
+              backgroundColor: '#ef4444',
+              alignItems: 'center', justifyContent: 'center',
+              shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
+            }}>
+              <Text style={{ fontSize: 24, color: '#fff', marginLeft: 4 }}>▶</Text>
             </View>
-          ) : (
-            // Real video on mobile
-            <WebView
-              source={{ uri: 'https://www.youtube.com/embed/I8TXEpxOqT0?autoplay=1' }}
-              allowsFullscreenVideo
-              javaScriptEnabled
-              style={{ flex: 1 }}
-            />
-          )}
-        </View>
+            <Text style={{
+              marginTop: 10, fontSize: 12, color: '#fff',
+              fontWeight: '600', opacity: 0.9,
+            }}>
+              Tap to watch on YouTube
+            </Text>
+          </View>
+        </TouchableOpacity>
       )}
 
       {/* Footer */}
@@ -402,7 +662,9 @@ export default function DashboardScreen({ navigation }) {
   const [myVaccinations, setMyVaccinations] = useState([]);
   const [loading,        setLoading]        = useState(true);
   const [refreshing,     setRefreshing]     = useState(false);
-  const [dismissed,      setDismissed]      = useState([]);
+  const [dismissed,         setDismissed]         = useState([]);
+  const [dismissedPending,  setDismissedPending]  = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const fetchMyData = async () => {
     try {
@@ -417,18 +679,32 @@ export default function DashboardScreen({ navigation }) {
   };
 
   useEffect(() => { fetchMyData(); }, []);
-  const onRefresh    = () => { setRefreshing(true); fetchMyData(); };
+
+  const onRefresh = () => { setRefreshing(true); setDismissedPending(false); fetchMyData(); };
+
   const handleLogout = async () => { await logout(); navigation.replace('Login'); };
 
   const pendingCount   = myCases.filter(c => c.status?.toLowerCase() === 'pending').length;
   const activeCount    = myCases.filter(c => c.status?.toLowerCase() !== 'completed').length;
   const ongoingCount   = myCases.filter(c => c.status?.toLowerCase() === 'ongoing').length;
   const completedCount = myCases.filter(c => c.status?.toLowerCase() === 'completed').length;
-  const allUpcoming    = getUpcomingDoses(myVaccinations).slice(0, 5);
-  const urgentDoses    = allUpcoming.filter(d => {
+  const allUpcomingFull = getUpcomingDoses(myVaccinations);
+  const allUpcoming     = allUpcomingFull.slice(0, 5);
+  const todayDoses      = allUpcomingFull.filter(d => daysUntil(d.date) === 'Today');
+  const urgentDoses     = allUpcomingFull.filter(d => {
+
     const u = daysUntil(d.date);
     return (u === 'Today' || u === 'Tomorrow') && !dismissed.includes(`${d.vaccinationId}-${d.doseKey}`);
   });
+
+  const handleMarkAllRead = () => {
+  const allKeys = allUpcomingFull.map(d => `${d.vaccinationId}-${d.doseKey}`);
+  setDismissed(allKeys);
+  setDismissedPending(true);
+  setShowNotifications(false);
+};
+
+
 
   const initials = (user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
@@ -437,56 +713,80 @@ export default function DashboardScreen({ navigation }) {
       <StatusBar barStyle={colors.statusBar} backgroundColor={colors.header} />
 
       {/* HEADER */}
-      <View style={[s.header, { backgroundColor: colors.header }]}>
-        <View style={s.bgCircle1} />
-        <View style={s.bgCircle2} />
+<View style={[s.header, { backgroundColor: colors.header }]}>
 
-        <View style={s.topBar}>
-          <View style={s.topLeft}>
-            <View style={s.shieldBox}>
-              <Shield color="#fff" size={17} strokeWidth={2.5} />
-            </View>
-            <View>
-              <Text style={s.portalTitle}>Animal Exposure Portal</Text>
-              <Text style={s.portalSub}>Healthcare Management</Text>
-            </View>
-          </View>
-          <View style={s.topRight}>
-            <View style={s.bellBox}>
-              <Bell color="#fff" size={20} />
-              {urgentDoses.length > 0 && (
-                <View style={s.bellBadge}>
-                  <Text style={s.bellBadgeText}>{urgentDoses.length}</Text>
-                </View>
-              )}
-            </View>
-            <TouchableOpacity style={s.avatar} onPress={handleLogout}>
-              <Text style={s.avatarText}>{initials}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+  {/* Large shield — top right, inline positioned */}
+  <Svg
+  width={200} height={210}
+  viewBox="0 0 100 100"
+  style={s.shieldLarge}
+>
+  <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.22)" />
+  <Path d="M50 33 L50 70 M32 52 L68 52" fill="none" stroke="rgba(0,188,212,0.15)" strokeWidth={5} strokeLinecap="round" />
+</Svg>
 
-        <View style={s.welcomeCard}>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <TrendingUp color="#fbbf24" size={18} />
-              <Text style={s.welcomeTitle}>Welcome Back, {user?.name?.split(' ')[0] || 'Patient'}!</Text>
-            </View>
-            <Text style={s.welcomeDesc}>
-              Stay on top of your health care journey. You have {activeCount} active case{activeCount !== 1 ? 's' : ''} and {allUpcoming.length} upcoming vaccination.
-            </Text>
-            <TouchableOpacity style={s.welcomeBtn}>
-              <Text style={s.welcomeBtnText}>Your health matters</Text>
-              <Heart color="#ef4444" size={13} fill="#ef4444" style={{ marginLeft: 6 }} />
-            </TouchableOpacity>
-          </View>
-          <View style={s.illustOuter}>
-            <View style={s.illustInner}>
-              <Stethoscope color="#fff" size={26} />
-            </View>
-          </View>
-        </View>
+{/* Small shield — bottom left */}
+<Svg
+  width={120} height={120}
+  viewBox="0 0 100 100"
+  style={s.shieldSmall}
+>
+  <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.15)" />
+</Svg>
+
+  <View style={s.topBar}>
+    <View style={s.topLeft}>
+      <View style={s.shieldBox}>
+        <Shield color="#fff" size={17} strokeWidth={2.5} />
       </View>
+      <View>
+        <Text style={s.portalTitle}>Animal Exposure Portal</Text>
+        <Text style={s.portalSub}>Healthcare Management</Text>
+      </View>
+    </View>
+    <View style={s.topRight}>
+      <TouchableOpacity style={s.bellBox} onPress={() => setShowNotifications(p => !p)}>
+        <Bell color="#fff" size={20} />
+
+      {(urgentDoses.length + (dismissedPending ? 0 : pendingCount)) > 0 && (
+        <View style={s.bellBadge}>
+          <Text style={s.bellBadgeText}>
+            {urgentDoses.length + (dismissedPending ? 0 : pendingCount)}
+          </Text>
+        </View>
+          )}
+
+
+      </TouchableOpacity>
+      <TouchableOpacity style={s.avatar} onPress={handleLogout}>
+        <Text style={s.avatarText}>{initials}</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+
+  <View style={s.welcomeCard}>
+    <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <TrendingUp color="#fbbf24" size={18} />
+        <Text style={s.welcomeTitle}>Welcome Back, {user?.name?.split(' ')[0] || 'Patient'}!</Text>
+      </View>
+      <Text style={s.welcomeDesc}>
+        Stay on top of your health care journey. You have {activeCount} active case{activeCount !== 1 ? 's' : ''} and {allUpcoming.length} upcoming vaccination.
+      </Text>
+      <TouchableOpacity style={s.welcomeBtn}>
+        <Text style={s.welcomeBtnText}>Your health matters</Text>
+        <Heart color="#ef4444" size={13} fill="#ef4444" style={{ marginLeft: 6 }} />
+      </TouchableOpacity>
+    </View>
+    <View style={s.illustOuter}>
+      <View style={s.illustInner}>
+        <Stethoscope color="#fff" size={26} />
+      </View>
+    </View>
+  </View>
+
+</View>
+
 
       {/* Notification banners */}
       {!loading && urgentDoses.map(dose => (
@@ -500,7 +800,7 @@ export default function DashboardScreen({ navigation }) {
       {/* BODY */}
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 20, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 20, paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1565C0" />}
       >
@@ -609,12 +909,16 @@ export default function DashboardScreen({ navigation }) {
         <View style={[s.sectionContainer, { marginTop: 4, backgroundColor: dark ? colors.card : '#f0fbff', borderColor: colors.border }]}>
           <View style={s.sectionContainerHeader}>
             <Text style={[s.sectionContainerTitle, { color: dark ? colors.accent : '#0369a1' }]}>Upcoming Vaccinations</Text>
-            {allUpcoming.length > 0 && (
-              <TouchableOpacity style={s.viewAllRow}>
+           {allUpcoming.length > 0 && (
+              <TouchableOpacity 
+                style={s.viewAllRow}
+                onPress={() => navigation.navigate('ScheduleTab', { screen: 'Vaccination' })}
+              >
                 <Text style={s.viewAllText}>View All</Text>
                 <ChevronRight color="#0ea5e9" size={15} />
               </TouchableOpacity>
             )}
+            
           </View>
 
           {loading ? (
@@ -670,12 +974,27 @@ export default function DashboardScreen({ navigation }) {
 
       </ScrollView>
 
+     
+
       {/* FAB Group */}
       <FABGroup
         onAddPress={() => navigation.navigate('AddCase')}
         onChatPress={() => navigation.navigate('Chat')}
       />
+
+      {/* Notification Modal — must be LAST to render on top */}
+      <NotificationModal
+        visible={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        urgentDoses={urgentDoses}
+        allUpcoming={allUpcoming}
+        todayDoses={todayDoses}
+        myCases={myCases}
+        onMarkAllRead={handleMarkAllRead}
+/>
+      
     </View>
+
   );
 }
 
@@ -686,16 +1005,18 @@ const s = StyleSheet.create({
     backgroundColor:'#1565C0',
     paddingHorizontal:16,
     paddingBottom:22,
-    overflow:'hidden',
   },
-  bgCircle1: {
-    position:'absolute', width:260, height:260, borderRadius:130,
-    backgroundColor:'rgba(0,188,212,0.25)', top:-80, right:-80,
-  },
-  bgCircle2: {
-    position:'absolute', width:160, height:160, borderRadius:80,
-    backgroundColor:'rgba(0,188,212,0.15)', top:20, right:60,
-  },
+ 
+  shieldLarge: {
+  position: 'absolute',
+  top: 0,
+  right: 0,
+},
+shieldSmall: {
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+},
 
   topBar: {
     flexDirection:'row', alignItems:'center', justifyContent:'space-between',

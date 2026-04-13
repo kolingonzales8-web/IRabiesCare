@@ -141,6 +141,7 @@ export default function Dashboard() {
   const [animalsObs, setAnimalsObs]     = useState([]);
   const [alerts, setAlerts]             = useState([]);
   const [loading, setLoading]           = useState(true);
+  const [myCases, setMyCases]           = useState([]);
 
   /* ── Clock ── */
   useEffect(() => {
@@ -200,6 +201,15 @@ export default function Dashboard() {
       if ((vs.missedDoses     ?? 0) > 0) builtAlerts.push({ type: 'warning', msg: `${vs.missedDoses} missed vaccination dose${vs.missedDoses > 1 ? 's' : ''} detected` });
       setAlerts(builtAlerts);
 
+       if (user?.role === 'staff') {
+        try {
+          const myRes = await apiClient.get('/cases', {
+            params: { assignedTo: user?._id || user?.id, limit: 5 }
+          });
+          setMyCases(myRes.data.cases || []);
+        } catch {}
+      }
+
       setLastRefresh(new Date());
     } catch (err) {
       console.error('Dashboard fetch error:', err);
@@ -216,16 +226,18 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, [fetchAll]);
 
-  const statCards = [
-    { icon: ClipboardList, label: 'Total Exposure Cases',      value: stats?.totalCases,        sub: `${stats?.urgentCases ?? 0} urgent`,            gradient: 'from-red-600 to-red-500',       iconBg: 'bg-red-700/40'     },
-    { icon: UserRound,     label: 'Active Patients',           value: stats?.activePatients,    sub: `${stats?.completedPatients ?? 0} completed`,    gradient: 'from-blue-600 to-blue-500',     iconBg: 'bg-blue-700/40'    },
+  const allStatCards = [
+    { icon: ClipboardList, label: 'Total Exposure Cases',      value: stats?.totalCases,        sub: `${stats?.urgentCases ?? 0} urgent`,             gradient: 'from-red-600 to-red-500',       iconBg: 'bg-red-700/40'     },
+    { icon: UserRound,     label: 'Active Patients',           value: stats?.activePatients,    sub: `${stats?.completedPatients ?? 0} completed`,     gradient: 'from-blue-600 to-blue-500',     iconBg: 'bg-blue-700/40'    },
     { icon: Syringe,       label: 'Vaccinations Today',        value: stats?.vaccinationsToday, sub: `${stats?.vaccinationsTotal ?? 0} total records`, gradient: 'from-emerald-500 to-green-400', iconBg: 'bg-emerald-700/40' },
     { icon: Dog,           label: 'Animals Under Observation', value: stats?.animalsObs,        sub: `${stats?.lostToFollowUp ?? 0} lost to follow-up`,gradient: 'from-amber-500 to-orange-400',  iconBg: 'bg-amber-700/40'   },
-    { icon: Target,        label: 'RIG Administered',          value: stats?.rigGiven,          sub: 'Rabies immunoglobulin given',                   gradient: 'from-purple-600 to-purple-500', iconBg: 'bg-purple-700/40'  },
-    { icon: CheckCircle,   label: 'Completed Treatments',      value: stats?.completedPatients, sub: 'Full PEP course finished',                      gradient: 'from-cyan-500 to-sky-400',      iconBg: 'bg-cyan-700/40'    },
+    { icon: Target,        label: 'RIG Administered',          value: stats?.rigGiven,          sub: 'Rabies immunoglobulin given',                    gradient: 'from-purple-600 to-purple-500', iconBg: 'bg-purple-700/40', adminOnly: true },
+    { icon: CheckCircle,   label: 'Completed Treatments',      value: stats?.completedPatients, sub: 'Full PEP course finished',                       gradient: 'from-cyan-500 to-sky-400',      iconBg: 'bg-cyan-700/40',   adminOnly: true },
   ];
-
+  const statCards = allStatCards.filter(s => user?.role === 'admin' || !s.adminOnly);
   // ✅ Quick nav — only show Analytics if admin
+
+
   const quickNav = [
     { icon: ClipboardList, label: 'Case Reports', path: '/cases',        color: 'text-red-600 bg-red-50 border-red-100' },
     { icon: UserRound,     label: 'Patients',     path: '/patients',     color: 'text-blue-600 bg-blue-50 border-blue-100' },
@@ -247,9 +259,14 @@ export default function Dashboard() {
           <div className="flex-1 min-w-0">
             <p className="text-blue-200 text-xs font-semibold uppercase tracking-widest mb-1">Welcome back</p>
             <h2 className="text-2xl font-bold mb-2">{user?.name || 'User'}</h2>
-            <p className="text-blue-100 text-sm leading-relaxed max-w-xl">
-              Monitor rabies exposure cases, track vaccinations, manage animal observations, and oversee the complete PEP program from this centralized dashboard.
-            </p>
+
+           <p className="text-blue-100 text-sm leading-relaxed max-w-xl">
+            {user?.role === 'admin'
+              ? 'Monitor rabies exposure cases, track vaccinations, manage animal observations, and oversee the complete PEP program from this centralized dashboard.'
+              : `Manage your assigned cases, track patient vaccinations, and monitor animal observations. Stay on top of your PEP schedules and patient follow-ups.`
+            }
+          </p>
+
             <div className="flex items-center gap-3 mt-4 flex-wrap">
               <button onClick={() => navigate('/cases')}
                 className="flex items-center gap-1.5 px-4 py-2 bg-white text-blue-700 rounded-lg text-xs font-bold hover:shadow-lg transition-all hover:-translate-y-0.5">
@@ -287,7 +304,7 @@ export default function Dashboard() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${user?.role === 'admin' ? 'xl:grid-cols-3' : 'xl:grid-cols-4'}`}>
         {statCards.map(s => <StatCard key={s.label} {...s} loading={loading} />)}
       </div>
 
@@ -425,30 +442,75 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Activity Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: 'Registered Today',        value: stats?.totalCases,        icon: ClipboardList, gradient: 'from-red-600 to-red-500',       iconBg: 'bg-red-700/30',     note: 'New exposure cases' },
-          { label: 'Vaccinations Due Today',   value: stats?.vaccinationsToday, icon: Syringe,       gradient: 'from-emerald-500 to-green-400', iconBg: 'bg-emerald-700/30', note: 'Scheduled PEP doses' },
-          { label: 'Animals Needing Followup', value: stats?.animalsObs,        icon: Dog,           gradient: 'from-amber-500 to-orange-400',  iconBg: 'bg-amber-700/30',   note: 'Under 14-day observation' },
-        ].map(({ label, value, icon: Icon, gradient, iconBg, note }) => (
-          <div key={label} className={`bg-gradient-to-br ${gradient} rounded-2xl p-4 text-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all`}>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-white/80 mb-1">{label}</p>
-                {loading
-                  ? <div className="h-6 w-10 bg-white/20 rounded animate-pulse" />
-                  : <p className="text-2xl font-bold leading-none">{value ?? 0}</p>
-                }
-                <p className="text-[11px] text-white/70 mt-1.5">{note}</p>
-              </div>
-              <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0`}>
-                <Icon size={18} className="text-white" />
+     {/* Activity Summary — Admin only */}
+      {user?.role === 'admin' && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { label: 'Registered Today',        value: stats?.totalCases,        icon: ClipboardList, gradient: 'from-red-600 to-red-500',       iconBg: 'bg-red-700/30',     note: 'New exposure cases' },
+            { label: 'Vaccinations Due Today',  value: stats?.vaccinationsToday, icon: Syringe,       gradient: 'from-emerald-500 to-green-400', iconBg: 'bg-emerald-700/30', note: 'Scheduled PEP doses' },
+            { label: 'Animals Needing Followup',value: stats?.animalsObs,        icon: Dog,           gradient: 'from-amber-500 to-orange-400',  iconBg: 'bg-amber-700/30',   note: 'Under 14-day observation' },
+          ].map(({ label, value, icon: Icon, gradient, iconBg, note }) => (
+            <div key={label} className={`bg-gradient-to-br ${gradient} rounded-2xl p-4 text-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all`}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-white/80 mb-1">{label}</p>
+                  {loading
+                    ? <div className="h-6 w-10 bg-white/20 rounded animate-pulse" />
+                    : <p className="text-2xl font-bold leading-none">{value ?? 0}</p>
+                  }
+                  <p className="text-[11px] text-white/70 mt-1.5">{note}</p>
+                </div>
+                <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0`}>
+                  <Icon size={18} className="text-white" />
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* My Assigned Cases — Staff only */}
+      {user?.role === 'staff' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b-2 border-slate-100 bg-slate-50">
+            <SectionHeader title="My Assigned Cases" sub="Your pending and urgent cases" onViewAll navigate={navigate} path="/cases" />
           </div>
-        ))}
-      </div>
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="space-y-3 p-5">
+                {[...Array(3)].map((_, i) => <div key={i} className="h-10 bg-slate-100 rounded-xl animate-pulse" />)}
+              </div>
+            ) : myCases.length === 0 ? (
+              <Empty icon={ClipboardList} text="No active cases assigned to you" />
+            ) : (
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    {['Case ID', 'Patient', 'Exposure Type', 'Status', 'Date'].map(h => (
+                      <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {myCases.map((c, i) => (
+                    <tr key={c.id} className={`border-b border-slate-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`}>
+                      <td className="px-4 py-3"><span className="font-bold text-blue-600 text-xs bg-blue-50 px-2 py-0.5 rounded-md">#{c.caseId}</span></td>
+                      <td className="px-4 py-3"><p className="font-semibold text-slate-800 text-xs whitespace-nowrap">{c.fullName || c.patientName}</p></td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold text-white bg-indigo-500 shadow-sm whitespace-nowrap">
+                          <span className="w-1 h-1 rounded-full bg-white/70" />{c.exposureType || '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3"><StatusBadge status={c.caseStatus || c.status} /></td>
+                      <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{fmt(c.dateOfExposure || c.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );

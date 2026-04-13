@@ -154,7 +154,7 @@ const ViewPanel = ({ animalId, onClose, onEdit }) => {
 
   return (
     <PanelShell width="max-w-xl" onBackdropClick={onClose}>
-      <div className="h-1 w-full bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-600 shrink-0" />
+      
 
       {/* Header */}
       <div className="shrink-0 bg-white border-b border-slate-100 px-6 h-16 flex items-center justify-between">
@@ -367,7 +367,7 @@ const EditPanel = ({ animalId, onClose, onSaved }) => {
 
   return (
     <PanelShell width="max-w-lg" onBackdropClick={onClose}>
-      <div className="h-1 w-full bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 shrink-0" />
+    
 
       {/* Header */}
       <div className="shrink-0 border-b border-slate-100 px-6 h-16 flex items-center justify-between bg-white">
@@ -631,7 +631,7 @@ const AddPanel = ({ onClose, onSaved }) => {
 
   return (
     <PanelShell width="max-w-lg" onBackdropClick={onClose}>
-      <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 shrink-0" />
+     
 
       {/* Header */}
       <div className="shrink-0 border-b border-slate-100 px-6 h-16 flex items-center justify-between bg-white">
