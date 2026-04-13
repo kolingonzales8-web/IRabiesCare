@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Two models — primary and fallback
 const PRIMARY_MODEL  = 'gemini-2.0-flash';
-const FALLBACK_MODEL = 'gemini-1.5-flash-latest';
+const FALLBACK_MODEL = 'gemini-2.0-flash';
 
 async function generateWithRetry(modelName, systemPrompt, chatHistory, message, retries = 3) {
   const model = genAI.getGenerativeModel({
