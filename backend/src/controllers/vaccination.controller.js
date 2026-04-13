@@ -445,7 +445,12 @@ exports.getVaccinationStats = async (req, res) => {
     const patientIds     = scopedPatients.map(p => p._id);
     const where          = { patientId: { $in: patientIds } };
 
-    const [total, ongoing, completed, rigGiven, missedDoses] = await Promise.all([
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const [total, ongoing, completed, rigGiven, missedDoses, today] = await Promise.all([
       Vaccination.countDocuments(where),
       Vaccination.countDocuments({ ...where, status: 'Ongoing'   }),
       Vaccination.countDocuments({ ...where, status: 'Completed' }),
@@ -454,9 +459,16 @@ exports.getVaccinationStats = async (req, res) => {
         { day0Missed: true }, { day3Missed: true }, { day7Missed: true },
         { day14Missed: true }, { day28Missed: true },
       ]}),
+      Vaccination.countDocuments({ ...where, $or: [
+        { day0Scheduled:  { $gte: startOfDay, $lte: endOfDay } },
+        { day3Scheduled:  { $gte: startOfDay, $lte: endOfDay } },
+        { day7Scheduled:  { $gte: startOfDay, $lte: endOfDay } },
+        { day14Scheduled: { $gte: startOfDay, $lte: endOfDay } },
+        { day28Scheduled: { $gte: startOfDay, $lte: endOfDay } },
+      ]}),
     ]);
 
-    res.status(200).json({ total, ongoing, completed, rigGiven, missedDoses });
+    res.status(200).json({ total, ongoing, completed, rigGiven, missedDoses, today });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
