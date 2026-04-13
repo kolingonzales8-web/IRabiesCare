@@ -31,7 +31,8 @@ const Dot = ({ online = true }) => (
 
 /* ── Stat Card ───────────────────────────────────────────────────────────── */
 const StatCard = ({ icon: Icon, label, value, sub, iconBg, gradient, loading, trend }) => (
-  <div className={`bg-gradient-to-br ${gradient || 'from-slate-600 to-slate-500'} rounded-2xl p-4 text-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200`}>
+  // REPLACE WITH:
+<div className={`bg-gradient-to-br ${gradient || 'from-slate-600 to-slate-500'} rounded-2xl p-4 text-white shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 GROUP`}>
     <div className="flex items-start justify-between">
       <div>
         <p className="text-xs font-medium text-white/80">{label}</p>
@@ -142,6 +143,7 @@ export default function Dashboard() {
   const [alerts, setAlerts]             = useState([]);
   const [loading, setLoading]           = useState(true);
   const [myCases, setMyCases]           = useState([]);
+  const [countdown, setCountdown] = useState(30);
 
   /* ── Clock ── */
   useEffect(() => {
@@ -217,23 +219,29 @@ export default function Dashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  useEffect(() => {
-    const id = setInterval(() => fetchAll(true), 30000);
-    return () => clearInterval(id);
-  }, [fetchAll]);
-
+    useEffect(() => {
+      setCountdown(30);
+      const tick = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) { fetchAll(true); return 30; }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(tick);
+    }, [fetchAll]);
+    
   const allStatCards = [
-    { icon: ClipboardList, label: 'Total Exposure Cases',      value: stats?.totalCases,        sub: `${stats?.urgentCases ?? 0} urgent`,             gradient: 'from-red-600 to-red-500',       iconBg: 'bg-red-700/40'     },
-    { icon: UserRound,     label: 'Active Patients',           value: stats?.activePatients,    sub: `${stats?.completedPatients ?? 0} completed`,     gradient: 'from-blue-600 to-blue-500',     iconBg: 'bg-blue-700/40'    },
-    { icon: Syringe,       label: 'Vaccinations Today',        value: stats?.vaccinationsToday, sub: `${stats?.vaccinationsTotal ?? 0} total records`, gradient: 'from-emerald-500 to-green-400', iconBg: 'bg-emerald-700/40' },
-    { icon: Dog,           label: 'Animals Under Observation', value: stats?.animalsObs,        sub: `${stats?.lostToFollowUp ?? 0} lost to follow-up`,gradient: 'from-amber-500 to-orange-400',  iconBg: 'bg-amber-700/40'   },
-    { icon: Target,        label: 'RIG Administered',          value: stats?.rigGiven,          sub: 'Rabies immunoglobulin given',                    gradient: 'from-purple-600 to-purple-500', iconBg: 'bg-purple-700/40', adminOnly: true },
-    { icon: CheckCircle,   label: 'Completed Treatments',      value: stats?.completedPatients, sub: 'Full PEP course finished',                       gradient: 'from-cyan-500 to-sky-400',      iconBg: 'bg-cyan-700/40',   adminOnly: true },
-  ];
+    { icon: ClipboardList, label: 'Total Exposure Cases',      value: stats?.totalCases,        sub: `${stats?.urgentCases ?? 0} urgent`,             gradient: 'from-red-600 to-red-500',       iconBg: 'bg-red-700/40',     path: '/cases'       },
+    { icon: UserRound,     label: 'Active Patients',           value: stats?.activePatients,    sub: `${stats?.completedPatients ?? 0} completed`,     gradient: 'from-blue-600 to-blue-500',     iconBg: 'bg-blue-700/40',    path: '/patients'    },
+    { icon: Syringe,       label: 'Vaccinations Today',        value: stats?.vaccinationsToday, sub: `${stats?.vaccinationsTotal ?? 0} total records`, gradient: 'from-emerald-500 to-green-400', iconBg: 'bg-emerald-700/40', path: '/vaccinations' },
+    { icon: Dog,           label: 'Animals Under Observation', value: stats?.animalsObs,        sub: `${stats?.lostToFollowUp ?? 0} lost to follow-up`,gradient: 'from-amber-500 to-orange-400',  iconBg: 'bg-amber-700/40',   path: '/animals'     },
+    { icon: Target,        label: 'RIG Administered',          value: stats?.rigGiven,          sub: 'Rabies immunoglobulin given',                    gradient: 'from-purple-600 to-purple-500', iconBg: 'bg-purple-700/40',  path: '/vaccinations', adminOnly: true },
+    { icon: CheckCircle,   label: 'Completed Treatments',      value: stats?.completedPatients, sub: 'Full PEP course finished',                       gradient: 'from-cyan-500 to-sky-400',      iconBg: 'bg-cyan-700/40',    path: '/patients',   adminOnly: true },
+];
   const statCards = allStatCards.filter(s => user?.role === 'admin' || !s.adminOnly);
   // ✅ Quick nav — only show Analytics if admin
 
@@ -281,9 +289,18 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          <div className="text-right flex-shrink-0">
+         <div className="text-right flex-shrink-0">
             <div className="text-4xl font-extrabold text-white/90 leading-none font-mono">{clock}</div>
             <div className="text-blue-200 text-xs mt-2">{dateStr}</div>
+            <div className="flex items-center gap-2 justify-end mt-2">
+              <button
+                onClick={() => { fetchAll(true); setCountdown(30); }}
+                className="flex items-center gap-1 text-blue-200 hover:text-white text-xs transition-all"
+              >
+                <RefreshCw size={11} className={refreshing ? 'animate-spin' : ''} />
+                {refreshing ? 'Updating...' : `Refresh in ${countdown}s`}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -305,7 +322,11 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${user?.role === 'admin' ? 'xl:grid-cols-3' : 'xl:grid-cols-4'}`}>
-        {statCards.map(s => <StatCard key={s.label} {...s} loading={loading} />)}
+        {statCards.map(s => (
+          <div key={s.label} onClick={() => navigate(s.path)} className="cursor-pointer">
+            <StatCard {...s} loading={loading} />
+          </div>
+        ))}
       </div>
 
       {/* Quick Nav */}

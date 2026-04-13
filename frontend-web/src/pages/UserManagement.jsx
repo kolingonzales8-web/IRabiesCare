@@ -188,7 +188,7 @@ const UserPanel = ({ editUser = null, onClose, onSaved }) => {
 
   return (
     <PanelShell onBackdropClick={onClose}>
-      <div className={`h-1 w-full shrink-0 ${isEdit ? 'bg-gradient-to-r from-amber-400 to-orange-400' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`} />
+     
 
       {/* Header */}
       <div className="shrink-0 border-b border-slate-100 px-6 h-16 flex items-center justify-between bg-white">
@@ -374,7 +374,7 @@ const StaffPanel = ({ staff, onClose, onEdit }) => {
 
   return (
     <PanelShell onBackdropClick={onClose}>
-      <div className="h-1 w-full shrink-0 bg-gradient-to-r from-sky-500 to-blue-600" />
+      
 
       {/* Header */}
       <div className="shrink-0 border-b border-slate-100 px-6 h-16 flex items-center justify-between bg-white">
