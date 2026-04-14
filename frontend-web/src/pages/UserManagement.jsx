@@ -536,6 +536,10 @@ export default function UserManagement() {
   };
 
   const handleToggleActive = async (user) => {
+    if (user.role === 'admin') {
+      alert('Admin accounts cannot be deactivated.');
+      return;
+    }
     setTogglingId(user.id);
     try { await apiClient.put(`/users/${user.id}`, { isActive: !user.isActive }); fetchUsers(); }
     catch (err) { alert(err.response?.data?.message || 'Failed to update user'); }
@@ -764,11 +768,13 @@ export default function UserManagement() {
                   <td className="px-5 py-4"><RoleBadge role={u.role} /></td>
                   <td className="px-5 py-4"><OnlineDot isOnline={u.isOnline} lastSeen={u.lastSeen} /></td>
                   <td className="px-5 py-4">
-                    <ActiveToggle
+
+                   <ActiveToggle
                       isActive={u.isActive}
                       onChange={() => handleToggleActive(u)}
-                      disabled={togglingId === u.id}
+                      disabled={togglingId === u.id || u.role === 'admin'}
                     />
+
                   </td>
                   <td className="px-5 py-4 text-sm text-slate-500 whitespace-nowrap">{formatDate(u.createdAt)}</td>
                   <td className="px-5 py-4">
