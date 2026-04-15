@@ -6,7 +6,8 @@ const userSchema = new mongoose.Schema({
   email:    { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true, minlength: 6 },
   role:     { type: String, default: 'user' },
-  isActive: { type: Boolean, default: true },
+  isActive:             { type: Boolean, default: true  },
+  deactivationRemark:   { type: String,  default: ''    },
 
   // ── Online presence ──────────────────────
   isOnline: { type: Boolean, default: false },
