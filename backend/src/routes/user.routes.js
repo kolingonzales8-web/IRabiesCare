@@ -56,19 +56,20 @@ router.put('/:id', protect, async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const { name, email, role, password, isActive } = req.body;
+    const { name, email, role, password, isActive, deactivationRemark } = req.body;
 
     if (name     !== undefined) user.name     = name;
     if (email    !== undefined) user.email    = email;
     if (isActive !== undefined) user.isActive = isActive;
     if (role !== undefined && user.role !== 'user') user.role = role;
     if (password) user.password = password;
+    if (deactivationremark !== undefined) user.deactivationremark = deactivationremark;
 
     await user.save();
 
     res.json({
       message: 'User updated successfully',
-      user: { id: user._id, name: user.name, email: user.email, role: user.role, isActive: user.isActive },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, isActive: user.isActive, deactivationRemark: user.deactivationRemark },
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
