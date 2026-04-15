@@ -63,7 +63,7 @@ router.put('/:id', protect, async (req, res) => {
     if (isActive !== undefined) user.isActive = isActive;
     if (role !== undefined && user.role !== 'user') user.role = role;
     if (password) user.password = password;
-    if (deactivationremark !== undefined) user.deactivationremark = deactivationremark;
+    if (deactivationRemark !== undefined) user.deactivationRemark = deactivationRemark;
 
     await user.save();
 
