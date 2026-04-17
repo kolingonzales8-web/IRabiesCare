@@ -10,8 +10,12 @@ exports.getAllPatients = async (req, res) => {
   try {
     const { status, search, page = 1, limit = 10 } = req.query;
 
-    const caseWhere = req.user.role === 'admin' ? {} : { assignedTo: req.user.id };
-    if (req.query.caseRef) caseWhere._id = req.query.caseRef;
+   const caseWhere = req.query.caseRef 
+      ? { _id: req.query.caseRef }
+      : req.user.role === 'admin' 
+        ? {} 
+        : { assignedTo: req.user.id };
+
 
     const scopedCases = await Case.find(caseWhere).select('_id fullName contact caseId');
     const caseIds     = scopedCases.map(c => c._id);
@@ -176,6 +180,7 @@ exports.getPatientStats = async (req, res) => {
 exports.getMyPatients = async (req, res) => {
   try {
     const userCases = await Case.find({ patientUserId: req.user.id }).select('_id');
+
     const caseIds   = userCases.map(c => c._id);
     const patients  = await Patient.find({ caseId: { $in: caseIds } })
       .populate('caseId', 'caseId fullName dateOfExposure exposureType status')
