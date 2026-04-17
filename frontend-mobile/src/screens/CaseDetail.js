@@ -82,14 +82,15 @@ export default function CaseDetail({ navigation, route }) {
   const fetchData = async () => {
     try {
       setError(null);
-      const [caseRes, patientRes] = await Promise.all([
-        apiClient.get(`/cases/${caseId}`),
-        apiClient.get(`/patients?caseRef=${caseId}&limit=1`),
-      ]);
-      setCaseData(caseRes.data);
-      const patients = patientRes.data.patients || [];
-      const patient  = patients[0] || null;
-      setPatientData(patient);
+      console.log('Fetching patient for caseId:', caseId);
+
+      const caseRes = await apiClient.get(`/cases/${caseId}`);
+        setCaseData(caseRes.data);
+        console.log('case _id:', caseRes.data._id);
+        const patientRes = await apiClient.get(`/patients?caseRef=${caseRes.data._id}&limit=1`);
+        console.log('patient result:', JSON.stringify(patientRes.data));
+        const patients = patientRes.data.patients || [];
+        setPatientData(patients[0] || null);
 
       
 
@@ -144,7 +145,7 @@ export default function CaseDetail({ navigation, route }) {
   >
     <Path d="M50 4 L92 18 L92 52 Q92 82 50 96 Q8 82 8 52 L8 18 Z" fill="rgba(0,188,212,0.15)" />
   </Svg>
-  <View style={styles.headerRow}>
+  <View style={[styles.headerRow, { alignItems: 'center' }]}>
 
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <ChevronLeft color="#fff" size={22} />
@@ -154,6 +155,35 @@ export default function CaseDetail({ navigation, route }) {
             <Text style={styles.headerSub}>Case Details</Text>
           </View>
           {caseData?.status && <StatusPill status={caseData.status} />}
+
+          {patientData?.woundCategory && (
+            <View style={{
+              backgroundColor:
+                patientData.woundCategory === 'Category I'   ? '#f0fdf4' :
+                patientData.woundCategory === 'Category II'  ? '#fffbeb' : '#fff5f5',
+              borderColor:
+                patientData.woundCategory === 'Category I'   ? '#bbf7d0' :
+                patientData.woundCategory === 'Category II'  ? '#fde68a' : '#fecaca',
+
+              borderWidth: 1.5, borderRadius: 20,
+                paddingHorizontal: 12, paddingVertical: 5,
+                flexDirection: 'row', alignItems: 'center', gap: 5,
+            }}>
+              <Text style={{ fontSize: 13 }}>
+                {patientData.woundCategory === 'Category I' ? '🟢' :
+                patientData.woundCategory === 'Category II' ? '🟡' : '🔴'}
+              </Text>
+              <Text style={{
+                fontSize: 12, fontWeight: '800',
+                color:
+                  patientData.woundCategory === 'Category I'   ? '#15803d' :
+                  patientData.woundCategory === 'Category II'  ? '#b45309' : '#b91c1c',
+              }}>
+                {patientData.woundCategory}
+              </Text>
+            </View>
+          )}
+
         </View>
         <View style={styles.submittedBadge}>
           <Clock color="rgba(255,255,255,0.6)" size={13} />
@@ -193,7 +223,8 @@ export default function CaseDetail({ navigation, route }) {
         <Section icon={Scissors} title="Wound Information"      accentColor="#ef4444" colors={colors}>
           <InfoRow label="Bleeding"      value={caseData?.woundBleeding} colors={colors} />
           <InfoRow label="Washed"        value={caseData?.woundWashed} colors={colors} />
-          <InfoRow label="No. of Wounds" value={caseData?.numberOfWounds?.toString()} last colors={colors} />
+          <InfoRow label="No. of Wounds"   value={caseData?.numberOfWounds?.toString()} colors={colors} />
+          <InfoRow label="Wound Category"  value={patientData?.woundCategory} last colors={colors} />
         </Section>
 
         

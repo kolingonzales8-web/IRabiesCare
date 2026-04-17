@@ -29,7 +29,7 @@ const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b5998', '#8b5cf6'];
 const TAB_CONFIG = [
   { key: 'compliance',   label: '6.1 Compliance Reports',        icon: FileText },
   { key: 'incomplete',   label: '6.2 Incomplete Cases',          icon: AlertCircle },
-  { key: 'municipality', label: '6.3 Municipality Trends',       icon: MapPin },
+  { key: 'municipality', label: '6.3  Barangay Trends',       icon: MapPin },
 ];
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
@@ -206,7 +206,7 @@ const incompleteCases = enriched.filter(p =>
       <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-slate-800">Vaccination Coverage Monitoring</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Compliance reports, incomplete cases, and municipality trends</p>
+          <p className="text-xs text-slate-400 mt-0.5">Compliance reports, incomplete cases, and barangay trends</p>
         </div>
         <button onClick={fetchAll}
           className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-xs font-medium transition-colors">
@@ -430,10 +430,10 @@ const incompleteCases = enriched.filter(p =>
 
             {/* Bar Chart */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-              <h3 className="text-sm font-bold text-slate-700 mb-1">Cases per Municipality</h3>
-              <p className="text-xs text-slate-400 mb-5">Top 15 municipalities by number of registered exposure cases</p>
+              <h3 className="text-sm font-bold text-slate-700 mb-1">Cases per Barangay</h3>
+              <p className="text-xs text-slate-400 mb-5">Top 15 barangays by number of registered exposure cases</p>
               {muniData.length === 0 ? (
-                <div className="flex items-center justify-center h-48 text-slate-400 text-sm">No municipality data available</div>
+                <div className="flex items-center justify-center h-48 text-slate-400 text-sm">No barangay data available</div>
               ) : (
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={muniData} margin={{ top: 5, right: 20, left: 0, bottom: 60 }}>
@@ -452,13 +452,13 @@ const incompleteCases = enriched.filter(p =>
             {/* Municipality Table */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-700">Municipality Vaccination Summary</h3>
+                <h3 className="text-sm font-bold text-slate-700">Barangay Vaccination Summary</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50">
-                      {['Municipality', 'Total Cases', 'Complete', 'Incomplete', 'No Record', 'Compliance Rate'].map(h => (
+                      {['Barangay', 'Total Cases', 'Complete', 'Incomplete', 'No Record', 'Compliance Rate'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                       ))}
                     </tr>

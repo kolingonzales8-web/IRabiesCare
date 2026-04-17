@@ -158,6 +158,7 @@ const UserPanel = ({ editUser = null, onClose, onSaved }) => {
   });
   const [showPass, setShowPass]       = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
   const [saving, setSaving]           = useState(false);
   const [error, setError]             = useState('');
   const set = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
@@ -165,16 +166,17 @@ const UserPanel = ({ editUser = null, onClose, onSaved }) => {
   const handleSubmit = async () => {
     setError('');
     if (!form.name || !form.email || !form.role) return setError('Name, email and role are required.');
-    if (!isEdit && !form.password)               return setError('Password is required.');
-    if (form.password && form.password.length < 6)           return setError('Password must be at least 6 characters.');
-    if (form.password && form.password !== form.confirmPassword) return setError('Passwords do not match.');
+    if (!isEdit && !form.password)                                   return setError('Password is required.');
+    if (!isEdit && form.password.length < 6)                         return setError('Password must be at least 6 characters.');
+    if (!isEdit && form.password !== form.confirmPassword)           return setError('Passwords do not match.');
+
     setSaving(true);
     if (isEdit && editUser?.role === 'user') form.role = 'user';
     try {
       if (isEdit) {
         const payload = { name: form.name, email: form.email, role: form.role };
-        if (form.password) payload.password = form.password;
         await apiClient.put(`/users/${editUser.id}`, payload);
+
       } else {
         await apiClient.post('/users', { name: form.name, email: form.email, role: form.role, password: form.password });
       }
@@ -265,26 +267,24 @@ const UserPanel = ({ editUser = null, onClose, onSaved }) => {
             )}
           </div>
 
-          {/* Password */}
+          {/* Password — only shown when creating a new user */}
+          {!isEdit && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
               <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center"><Lock size={13} className="text-amber-600" /></div>
-              <div>
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Password</span>
-                {isEdit && <span className="ml-2 text-[10px] text-slate-400">Leave blank to keep current</span>}
-              </div>
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Password</span>
             </div>
-            <FormField label="Password" required={!isEdit}>
+            <FormField label="Password" required>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 <input type={showPass ? 'text' : 'password'} value={form.password} onChange={e => set('password')(e.target.value)}
-                  placeholder={isEdit ? 'Enter new password to change' : 'Min. 6 characters'} className={`${inputCls} pl-10 pr-10`} />
+                  placeholder="Min. 6 characters" className={`${inputCls} pl-10 pr-10`} />
                 <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </FormField>
-            <FormField label="Confirm Password" required={!isEdit}>
+            <FormField label="Confirm Password" required>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 <input type={showConfirm ? 'text' : 'password'} value={form.confirmPassword} onChange={e => set('confirmPassword')(e.target.value)}
@@ -302,6 +302,8 @@ const UserPanel = ({ editUser = null, onClose, onSaved }) => {
               )}
             </FormField>
           </div>
+          )}
+
           <div className="pb-2" />
         </div>
       </div>
@@ -485,6 +487,102 @@ const StaffPanel = ({ staff, onClose, onEdit }) => {
     </PanelShell>
   );
 };
+
+/* ─────────────────────────────────────
+   DEACTIVATE MODAL
+───────────────────────────────────── */
+const DEACTIVATE_REASONS = [
+  'Account no longer needed',
+  'Staff resigned / left organization',
+  'Duplicate account',
+  'Suspicious activity detected',
+  'Prolonged inactivity',
+  'Policy violation',
+  'Other',
+];
+
+const DeactivateModal = ({ user, onConfirm, onCancel, loading }) => {
+  const [selected, setSelected] = useState('');
+  const [custom, setCustom]     = useState('');
+
+  const finalRemark = selected === 'Other' ? custom.trim() : selected;
+  const canSubmit   = !!finalRemark && (!loading);
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[9999] flex items-center justify-center p-4"
+      style={{ animation: 'fadeIn 0.15s ease' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+        style={{ animation: 'scaleIn 0.2s cubic-bezier(.4,0,.2,1)' }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center gap-3 px-6 pt-5 pb-4 border-b border-slate-100">
+          <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <EyeOff size={18} className="text-red-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-800">Deactivate Account</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {user?.name} · <span className="capitalize">{user?.role}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-4 space-y-3">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Select a reason</p>
+
+          {/* Preset reasons */}
+          <div className="space-y-2">
+            {DEACTIVATE_REASONS.map(r => (
+              <button key={r} type="button"
+                onClick={() => { setSelected(r); if (r !== 'Other') setCustom(''); }}
+                className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm font-medium transition-all
+                  ${selected === r
+                    ? 'border-red-400 bg-red-50 text-red-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}>
+                <span className="flex items-center gap-2">
+                  <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0
+                    ${selected === r ? 'border-red-500' : 'border-slate-300'}`}>
+                    {selected === r && <span className="w-1.5 h-1.5 rounded-full bg-red-500 block" />}
+                  </span>
+                  {r}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Custom input when "Other" is selected */}
+          {selected === 'Other' && (
+            <div style={{ animation: 'fadeUp 0.2s ease' }}>
+              <textarea
+                value={custom}
+                onChange={e => setCustom(e.target.value)}
+                placeholder="Describe the reason for deactivation..."
+                rows={3}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all resize-none"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
+          <button onClick={onCancel} disabled={loading}
+            className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+            Cancel
+          </button>
+          <button onClick={() => onConfirm(finalRemark)} disabled={!canSubmit}
+            className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all">
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <EyeOff size={14} />}
+            Deactivate
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─────────────────────────────────────
    MAIN PAGE
 ───────────────────────────────────── */
@@ -501,7 +599,9 @@ export default function UserManagement() {
   const [addOpen, setAddOpen]       = useState(false);
   const [editUser, setEditUser]     = useState(null);
   const [togglingId, setTogglingId] = useState(null);
-  const [viewUser, setViewUser] = useState(null);
+  const [viewUser, setViewUser]             = useState(null);
+  const [deactivateTarget, setDeactivateTarget] = useState(null);
+  const [deactivating, setDeactivating]     = useState(false);
 
   const closeAll = () => { setAddOpen(false); setEditUser(null); setViewUser(null); };
 
@@ -535,16 +635,40 @@ export default function UserManagement() {
     finally { setDeleting(false); }
   };
 
-  const handleToggleActive = async (user) => {
-    if (user.role === 'admin') {
-      alert('Admin accounts cannot be deactivated.');
-      return;
-    }
+  const handleToggleActive = (user) => {
+  if (user.role === 'admin') {
+    alert('Admin accounts cannot be deactivated.');
+    return;
+  }
+  if (user.isActive) {
+    // Opening deactivation — show modal for remarks
+    setDeactivateTarget(user);
+  } else {
+    // Re-activating — no remarks needed, do it directly
     setTogglingId(user.id);
-    try { await apiClient.put(`/users/${user.id}`, { isActive: !user.isActive }); fetchUsers(); }
-    catch (err) { alert(err.response?.data?.message || 'Failed to update user'); }
-    finally { setTogglingId(null); }
-  };
+    apiClient.put(`/users/${user.id}`, { isActive: true, deactivationRemark: '' })
+      .then(fetchUsers)
+      .catch(err => alert(err.response?.data?.message || 'Failed to update user'))
+      .finally(() => setTogglingId(null));
+  }
+};
+
+const handleConfirmDeactivate = async (remark) => {
+  if (!deactivateTarget) return;
+  setDeactivating(true);
+  try {
+    await apiClient.put(`/users/${deactivateTarget.id}`, {
+      isActive: false,
+      deactivationRemark: remark,
+    });
+    fetchUsers();
+    setDeactivateTarget(null);
+  } catch (err) {
+    alert(err.response?.data?.message || 'Failed to deactivate user');
+  } finally {
+    setDeactivating(false);
+  }
+};
 
   const filtered = users.filter(u => {
   const matchRole   = roleFilter === 'All' || u.role === roleFilter;
@@ -567,6 +691,15 @@ export default function UserManagement() {
   return (
     <div className="min-h-full bg-slate-100 -m-6 lg:-m-8 p-6 lg:p-8">
       <style>{SLIDE_IN}</style>
+
+      {deactivateTarget && (
+        <DeactivateModal
+          user={deactivateTarget}
+          loading={deactivating}
+          onConfirm={handleConfirmDeactivate}
+          onCancel={() => setDeactivateTarget(null)}
+        />
+      )}
 
      {(addOpen || editUser) && (
   <UserPanel editUser={editUser} onClose={closeAll} onSaved={() => { closeAll(); fetchUsers(); }} />
@@ -730,7 +863,7 @@ export default function UserManagement() {
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b-2 border-slate-100 bg-slate-50/80">
-                {['#', 'User', 'Email', 'Role', 'Online Status', 'Active', 'Date Added', 'Actions'].map(h => (
+                {['#', 'User', 'Email', 'Role', 'Online Status', 'Active', 'Remarks', 'Date Added', 'Actions'].map(h => (
                   <th key={h} className="px-5 py-3.5 text-left text-[10px] font-bold text-blue-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -776,9 +909,18 @@ export default function UserManagement() {
                     />
 
                   </td>
-                  <td className="px-5 py-4 text-sm text-slate-500 whitespace-nowrap">{formatDate(u.createdAt)}</td>
+                  <td className="px-5 py-4 max-w-[160px]">
+                    {u.deactivationRemark ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600 font-medium truncate max-w-full" title={u.deactivationRemark}>
+                        <AlertCircle size={11} className="shrink-0" />
+                        <span className="truncate">{u.deactivationRemark}</span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 text-xs">—</span>
+                    )}
+                    </td>
+                  <td className="px-5 py-4 text-sm text-slate-500">{formatDate(u.createdAt)}</td>
                   <td className="px-5 py-4">
-
                    <div className="flex items-center gap-1.5">
                     {u.role === 'staff' && (
                       <button onClick={() => { closeAll(); setViewUser(u); }}

@@ -227,7 +227,16 @@ const AddPanel = ({ onClose, onSaved }) => {
               <div className="relative">
                 <select value={form.caseId} onChange={e => set('caseId')(e.target.value)} className={inp}>
                   <option value="">— Select a case —</option>
-                  {cases.map(c => <option key={c.id} value={c.id}>#{c.caseId} — {c.fullName}</option>)}
+                  {cases.map(c => {
+                        const dateStr = c.createdAt
+                          ? new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+                          : '';
+                        return (
+                          <option key={c.id} value={c.id}>
+                            #{c.caseId} — {c.fullName}{dateStr ? `  (${dateStr})` : ''}
+                          </option>
+                        );
+                      })}
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>

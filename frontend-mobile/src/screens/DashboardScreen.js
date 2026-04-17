@@ -660,6 +660,7 @@ export default function DashboardScreen({ navigation }) {
   const { user, logout } = useAuthStore();
   const [myCases,        setMyCases]        = useState([]);
   const [myVaccinations, setMyVaccinations] = useState([]);
+  const [myPatients,     setMyPatients]     = useState([]);
   const [loading,        setLoading]        = useState(true);
   const [refreshing,     setRefreshing]     = useState(false);
   const [dismissed,         setDismissed]         = useState([]);
@@ -667,13 +668,19 @@ export default function DashboardScreen({ navigation }) {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const fetchMyData = async () => {
+
     try {
-      const [cR, vR] = await Promise.allSettled([
+
+      const [cR, vR, pR] = await Promise.allSettled([
         apiClient.get('/cases/my'),
         apiClient.get('/vaccinations/my'),
+        apiClient.get('/patients/my'),
       ]);
       setMyCases(cR.status === 'fulfilled' ? cR.value.data || [] : []);
       setMyVaccinations(vR.status === 'fulfilled' ? vR.value.data || [] : []);
+      setMyPatients(pR.status === 'fulfilled' ? pR.value.data?.patients || pR.value.data || [] : []);
+
+
     } catch (e) { console.log(e.message); }
     finally { setLoading(false); setRefreshing(false); }
   };
@@ -688,6 +695,9 @@ export default function DashboardScreen({ navigation }) {
   const activeCount    = myCases.filter(c => c.status?.toLowerCase() !== 'completed').length;
   const ongoingCount   = myCases.filter(c => c.status?.toLowerCase() === 'ongoing').length;
   const completedCount = myCases.filter(c => c.status?.toLowerCase() === 'completed').length;
+  const cat1Count = myPatients.filter(p => p.woundCategory === 'Category I').length;
+  const cat2Count = myPatients.filter(p => p.woundCategory === 'Category II').length;
+  const cat3Count = myPatients.filter(p => p.woundCategory === 'Category III').length;
   const allUpcomingFull = getUpcomingDoses(myVaccinations);
   const allUpcoming     = allUpcomingFull.slice(0, 5);
   const todayDoses      = allUpcomingFull.filter(d => daysUntil(d.date) === 'Today');
@@ -696,6 +706,8 @@ export default function DashboardScreen({ navigation }) {
     const u = daysUntil(d.date);
     return (u === 'Today' || u === 'Tomorrow') && !dismissed.includes(`${d.vaccinationId}-${d.doseKey}`);
   });
+
+
 
   const handleMarkAllRead = () => {
   const allKeys = allUpcomingFull.map(d => `${d.vaccinationId}-${d.doseKey}`);
@@ -807,31 +819,66 @@ export default function DashboardScreen({ navigation }) {
         <Text style={[s.sectionLabel, { color: dark ? colors.accent : '#0369a1' }]}>MY CASES OVERVIEW</Text>
         {loading ? (
           <ActivityIndicator color="#1565C0" style={{ marginVertical: 20 }} />
-        ) : (
-          <View style={s.statsRow}>
-            {[
-              { lbl:'PENDING',   num: pendingCount,   Icon: Clock,       gradient:['#3b82f6','#2563eb'] },
-              { lbl:'ONGOING',   num: ongoingCount,   Icon: Activity,    gradient:['#8b5cf6','#7c3aed'] },
-              { lbl:'COMPLETED', num: completedCount, Icon: CheckCircle, gradient:['#22d3ee','#0891b2'] },
-            ].map(({ lbl, num, Icon, gradient }) => (
-              <View key={lbl} style={[s.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[s.statLbl, { color: colors.subText }]}>{lbl}</Text>
-                <Text style={[s.statNum, { color: colors.text }]}>{num}</Text>
-                <View style={{ flexDirection:'row', alignItems:'center', gap:3, marginBottom:10 }}>
-                  <TrendingUp color="#10b981" size={10} />
-                  <Text style={{ fontSize:10, color:'#10b981', fontWeight:'600' }}>+0%</Text>
-                </View>
-                <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 4 }}>
-                  <ProgressRing num={num} total={myCases.length} color={gradient[0]} />
-                  <View style={{ position: 'absolute' }}>
-                    <Icon color={gradient[0]} size={16} />
-                  </View>
-                </View>
-              </View>
-            ))}
+       ) : (
+          <View>
+          {/* Case Status Row */}
+<View style={s.statsRow}>
+  {[
+    { lbl:'PENDING',   num: pendingCount,   Icon: Clock,       gradient:['#3b82f6','#2563eb'] },
+    { lbl:'ONGOING',   num: ongoingCount,   Icon: Activity,    gradient:['#8b5cf6','#7c3aed'] },
+    { lbl:'COMPLETED', num: completedCount, Icon: CheckCircle, gradient:['#22d3ee','#0891b2'] },
+  ].map(({ lbl, num, Icon, gradient }) => (
+    <View key={lbl} style={[s.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Text style={[s.statLbl, { color: colors.subText }]}>{lbl}</Text>
+      <Text style={[s.statNum, { color: colors.text }]}>{num}</Text>
+      <View style={{ flexDirection:'row', alignItems:'center', gap:3, marginBottom:10 }}>
+        <TrendingUp color="#10b981" size={10} />
+        <Text style={{ fontSize:10, color:'#10b981', fontWeight:'600' }}>+0%</Text>
+      </View>
+      <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 4 }}>
+        <ProgressRing num={num} total={myCases.length} color={gradient[0]} />
+        <View style={{ position: 'absolute' }}>
+          <Icon color={gradient[0]} size={16} />
+        </View>
+      </View>
+    </View>
+  ))}
+</View>
+
+
+<Text style={[s.sectionLabel, { color: dark ? colors.accent : '#0369a1', marginTop: 4 }]}>
+  WOUND CATEGORY
+</Text>
+<View style={[s.statsRow, { marginBottom: 16 }]}>
+  {[
+    { lbl: 'CAT. I',   num: cat1Count, color: '#10b981', bg: '#f0fdf4', border: '#bbf7d0', dot: '🟢' },
+    { lbl: 'CAT. II',  num: cat2Count, color: '#f59e0b', bg: '#fffbeb', border: '#fde68a', dot: '🟡' },
+    { lbl: 'CAT. III', num: cat3Count, color: '#ef4444', bg: '#fff5f5', border: '#fecaca', dot: '🔴' },
+  ].map(({ lbl, num, color, bg, border, dot }) => (
+    <View key={lbl} style={{
+      flex: 1,
+      backgroundColor: bg,
+      borderRadius: 16,
+      padding: 14,
+      borderWidth: 1.5,
+      borderColor: border,
+      alignItems: 'center',
+      shadowColor: color,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 6,
+      elevation: 2,
+    }}>
+      <Text style={{ fontSize: 20, marginBottom: 4 }}>{dot}</Text>
+      <Text style={{ fontSize: 28, fontWeight: '900', color, lineHeight: 32 }}>{num}</Text>
+      <Text style={{ fontSize: 9, fontWeight: '800', color, letterSpacing: 0.8, marginTop: 4, textAlign: 'center' }}>
+        {lbl}
+      </Text>
+    </View>
+  ))}
+</View>
           </View>
         )}
-
         <TipsCarousel />
         <AwarenessVideoCard />
 
